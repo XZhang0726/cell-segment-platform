@@ -15,7 +15,7 @@ class I18n:
     def __init__(self):
         self.locales_dir = Path(__file__).parent
         self.translations: Dict[str, Dict[str, Any]] = {}
-        self.supported_languages = ['en_US', 'zh_CN']
+        self.supported_languages = ['en_US']
         self.default_language = 'en_US'  # English as default
 
         # Load all translations at initialization
@@ -34,7 +34,7 @@ class I18n:
 
     def get_current_language(self) -> str:
         """Get current language from session state."""
-        if 'language' not in st.session_state:
+        if st.session_state.get('language') not in self.supported_languages:
             st.session_state['language'] = self.default_language
         return st.session_state['language']
 
@@ -59,7 +59,6 @@ class I18n:
         Example:
             t('messages.cells_detected', count=42)
             # Returns: "🔍 Detected 42 cell regions" (English)
-            # Returns: "🔍 检测到 42 个细胞区域" (Chinese)
         """
         lang = self.get_current_language()
         translation_dict = self.translations.get(lang, {})
@@ -92,8 +91,7 @@ class I18n:
     def get_language_name(self, lang_code: str) -> str:
         """Get display name for language code."""
         names = {
-            'en_US': 'English',
-            'zh_CN': '中文'
+            'en_US': 'English'
         }
         return names.get(lang_code, lang_code)
 

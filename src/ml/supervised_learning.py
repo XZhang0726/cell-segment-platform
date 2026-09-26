@@ -1,15 +1,15 @@
 """
-监督学习模块
+Supervised learning utilities.
 
-提供完整的监督学习流程，包括特征工程、模型训练、评估和预测
-支持分类和回归任务，提供AutoML功能自动选择最佳模型
+Provides feature engineering, model training, evaluation, and prediction workflows.
+Supports classification, regression, and automated model comparison and selection.
 
-主要功能：
-1. 特征工程：特征选择、缩放、编码、多项式特征生成
-2. 模型训练：支持多种sklearn模型，超参数调优
-3. 模型评估：全面的评估指标和可视化
-4. 模型持久化：保存/加载模型及元数据
-5. AutoML：自动模型比较和选择
+Main capabilities:
+1. Feature engineering: selection, scaling, encoding, and polynomial features.
+2. Model training: multiple scikit-learn estimators and hyperparameter tuning.
+3. Model evaluation: metrics and visualizations.
+4. Model persistence: save and load models with metadata.
+5. AutoML: automated model comparison and selection.
 """
 
 import numpy as np
@@ -243,21 +243,21 @@ def select_features_correlation(
     method: str = 'pearson'
 ) -> Tuple[pd.DataFrame, Dict]:
     """
-    基于相关性的特征选择
+    Select features based on correlation.
 
     Args:
-        X: 特征DataFrame
-        y: 目标变量Series
-        threshold: 相关性阈值（绝对值）
-        method: 相关性计算方法 ('pearson', 'spearman', 'kendall')
+        X: Feature DataFrame.
+        y: Target Series.
+        threshold: Absolute correlation threshold.
+        method: Correlation method ('pearson', 'spearman', 'kendall').
 
     Returns:
-        X_selected: 选择后的特征DataFrame
-        info: 包含特征相关性信息的字典
+        X_selected: DataFrame of selected features.
+        info: Dictionary containing feature correlations.
     """
     logger.info(f"Selecting features by correlation (method={method}, threshold={threshold})")
 
-    # 计算特征与目标的相关性
+    # Compute correlations between features and the target.
     correlations = {}
     for col in X.columns:
         if method == 'pearson':
@@ -270,7 +270,7 @@ def select_features_correlation(
             raise ValueError(f"Unknown correlation method: {method}")
         correlations[col] = corr
 
-    # 选择相关性高于阈值的特征
+    # Select features whose correlation exceeds the threshold.
     selected_features = [col for col, corr in correlations.items() if abs(corr) >= threshold]
 
     if len(selected_features) == 0:
@@ -301,17 +301,17 @@ def select_features_mutual_info(
     task_type: str = 'classification'
 ) -> Tuple[pd.DataFrame, Dict]:
     """
-    基于互信息的特征选择
+    Select features based on mutual information.
 
     Args:
-        X: 特征DataFrame
-        y: 目标变量Series
-        n_features: 要选择的特征数量（None表示自动选择前50%）
+        X: Feature DataFrame.
+        y: Target Series.
+        n_features: Number of features to select; None selects the top 50%.
         task_type: 'classification' or 'regression'
 
     Returns:
-        X_selected: 选择后的特征DataFrame
-        info: 包含特征重要性信息的字典
+        X_selected: DataFrame of selected features.
+        info: Dictionary containing feature importances.
     """
     logger.info(f"Selecting features by mutual information (task_type={task_type})")
 
@@ -320,19 +320,19 @@ def select_features_mutual_info(
 
     n_features = min(n_features, len(X.columns))
 
-    # 计算互信息
+    # Compute mutual information.
     if task_type == 'classification':
         mi_scores = mutual_info_classif(X, y, random_state=42)
     else:
         mi_scores = mutual_info_regression(X, y, random_state=42)
 
-    # 创建特征重要性DataFrame
+    # Create a feature importance DataFrame.
     mi_df = pd.DataFrame({
         'feature': X.columns,
         'mi_score': mi_scores
     }).sort_values('mi_score', ascending=False)
 
-    # 选择前n个特征
+    # Select the top n features.
     selected_features = mi_df.head(n_features)['feature'].tolist()
     X_selected = X[selected_features]
 
@@ -358,18 +358,18 @@ def select_features_rfe(
     task_type: str = 'classification'
 ) -> Tuple[pd.DataFrame, Dict]:
     """
-    递归特征消除（RFE）
+    Select features using recursive feature elimination (RFE).
 
     Args:
-        X: 特征DataFrame
-        y: 目标变量Series
-        n_features: 要选择的特征数量（None表示自动选择前50%）
-        estimator: 用于特征选择的估计器（None使用默认）
+        X: Feature DataFrame.
+        y: Target Series.
+        n_features: Number of features to select; None selects the top 50%.
+        estimator: Feature selection estimator; None uses the default.
         task_type: 'classification' or 'regression'
 
     Returns:
-        X_selected: 选择后的特征DataFrame
-        info: 包含特征排名信息的字典
+        X_selected: DataFrame of selected features.
+        info: Dictionary containing feature rankings.
     """
     logger.info(f"Selecting features by RFE (task_type={task_type})")
 
@@ -378,22 +378,22 @@ def select_features_rfe(
 
     n_features = min(n_features, len(X.columns))
 
-    # 使用默认估计器
+    # Use the default estimator.
     if estimator is None:
         if task_type == 'classification':
             estimator = RandomForestClassifier(n_estimators=50, random_state=42, n_jobs=-1)
         else:
             estimator = RandomForestRegressor(n_estimators=50, random_state=42, n_jobs=-1)
 
-    # 执行RFE
+    # Run RFE.
     rfe = RFE(estimator=estimator, n_features_to_select=n_features)
     rfe.fit(X, y)
 
-    # 获取选择的特征
+    # Get the selected features.
     selected_features = X.columns[rfe.support_].tolist()
     X_selected = X[selected_features]
 
-    # 获取特征排名
+    # Get feature rankings.
     feature_ranking = dict(zip(X.columns, rfe.ranking_))
 
     info = {
@@ -418,22 +418,22 @@ def select_features_tree_based(
     task_type: str = 'classification'
 ) -> Tuple[pd.DataFrame, Dict]:
     """
-    基于树模型的特征选择
+    Select features using a tree-based model.
 
     Args:
-        X: 特征DataFrame
-        y: 目标变量Series
-        n_features: 要选择的特征数量（None表示使用threshold）
-        threshold: 重要性阈值 ('mean', 'median', or float value)
+        X: Feature DataFrame.
+        y: Target Series.
+        n_features: Number of features to select; None uses threshold.
+        threshold: Importance threshold ('mean', 'median', or a float).
         task_type: 'classification' or 'regression'
 
     Returns:
-        X_selected: 选择后的特征DataFrame
-        info: 包含特征重要性信息的字典
+        X_selected: DataFrame of selected features.
+        info: Dictionary containing feature importances.
     """
     logger.info(f"Selecting features by tree-based importance (task_type={task_type})")
 
-    # 训练树模型
+    # Train a tree-based model.
     if task_type == 'classification':
         model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
     else:
@@ -441,19 +441,19 @@ def select_features_tree_based(
 
     model.fit(X, y)
 
-    # 获取特征重要性
+    # Get feature importances.
     importances = model.feature_importances_
     importance_df = pd.DataFrame({
         'feature': X.columns,
         'importance': importances
     }).sort_values('importance', ascending=False)
 
-    # 选择特征
+    # Select features.
     if n_features is not None:
         n_features = min(n_features, len(X.columns))
         selected_features = importance_df.head(n_features)['feature'].tolist()
     else:
-        # 使用阈值
+        # Apply the importance threshold.
         if threshold == 'mean':
             thresh_value = importances.mean()
         elif threshold == 'median':
@@ -492,17 +492,17 @@ def scale_features(
     fit: bool = True
 ) -> Tuple[np.ndarray, Any]:
     """
-    特征缩放
+    Scale features.
 
     Args:
-        X: 特征DataFrame或数组
-        method: 缩放方法 ('standard', 'minmax', 'robust')
-        scaler: 已拟合的缩放器（None表示创建新的）
-        fit: 是否拟合scaler（训练时True，预测时False）
+        X: Feature DataFrame or array.
+        method: Scaling method ('standard', 'minmax', 'robust').
+        scaler: Fitted scaler; None creates a new scaler.
+        fit: Fit the scaler; True for training and False for prediction.
 
     Returns:
-        X_scaled: 缩放后的特征数组
-        scaler: 缩放器对象
+        X_scaled: Scaled feature array.
+        scaler: Scaler object.
     """
     if scaler is None:
         if method == 'standard':
@@ -532,20 +532,20 @@ def encode_categorical(
     categorical_cols: Optional[List[str]] = None
 ) -> Tuple[pd.DataFrame, Any]:
     """
-    分类变量编码
+    Encode categorical variables.
 
     Args:
-        X: 特征DataFrame
-        method: 编码方法 ('onehot', 'label')
-        encoder: 已拟合的编码器（None表示创建新的）
-        fit: 是否拟合encoder（训练时True，预测时False）
-        categorical_cols: 分类列名列表（None表示自动检测）
+        X: Feature DataFrame.
+        method: Encoding method ('onehot', 'label').
+        encoder: Fitted encoder; None creates a new encoder.
+        fit: Fit the encoder; True for training and False for prediction.
+        categorical_cols: List of categorical columns; None detects them automatically.
 
     Returns:
-        X_encoded: 编码后的DataFrame
-        encoder: 编码器对象
+        X_encoded: Encoded DataFrame.
+        encoder: Encoder object.
     """
-    # 自动检测分类列
+    # Detect categorical columns automatically.
     if categorical_cols is None:
         categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
 
@@ -564,13 +564,13 @@ def encode_categorical(
         else:
             encoded = encoder.transform(X[categorical_cols])
 
-        # 创建新的列名
+        # Create new column names.
         feature_names = encoder.get_feature_names_out(categorical_cols)
 
-        # 创建编码后的DataFrame
+        # Create the encoded DataFrame.
         encoded_df = pd.DataFrame(encoded, columns=feature_names, index=X.index)
 
-        # 合并非分类列
+        # Combine with noncategorical columns.
         non_categorical_cols = [col for col in X.columns if col not in categorical_cols]
         X_encoded = pd.concat([X[non_categorical_cols], encoded_df], axis=1)
 
@@ -604,17 +604,17 @@ def generate_polynomial_features(
     include_bias: bool = False
 ) -> Tuple[pd.DataFrame, List[str]]:
     """
-    生成多项式特征
+    Generate polynomial features.
 
     Args:
-        X: 特征DataFrame
-        degree: 多项式次数
-        interaction_only: 是否仅生成交互项
-        include_bias: 是否包含偏置项
+        X: Feature DataFrame.
+        degree: Polynomial degree.
+        interaction_only: Generate interaction terms only.
+        include_bias: Include a bias term.
 
     Returns:
-        X_poly: 包含多项式特征的DataFrame
-        feature_names: 新特征名称列表
+        X_poly: DataFrame containing polynomial features.
+        feature_names: List of generated feature names.
     """
     from sklearn.preprocessing import PolynomialFeatures
 
@@ -623,7 +623,7 @@ def generate_polynomial_features(
     poly = PolynomialFeatures(degree=degree, interaction_only=interaction_only, include_bias=include_bias)
     X_poly_array = poly.fit_transform(X)
 
-    # 生成特征名称
+    # Generate feature names.
     feature_names = poly.get_feature_names_out(X.columns)
 
     X_poly = pd.DataFrame(X_poly_array, columns=feature_names, index=X.index)
@@ -640,42 +640,42 @@ def detect_feature_interactions(
     task_type: str = 'classification'
 ) -> pd.DataFrame:
     """
-    检测特征交互
+    Identify feature interactions.
 
-    使用随机森林检测特征之间的交互效应
+    Use a random forest to estimate the importance of feature interactions.
 
     Args:
-        X: 特征DataFrame
-        y: 目标变量Series
-        top_n: 返回前N个最重要的交互
+        X: Feature DataFrame.
+        y: Target Series.
+        top_n: Number of highest-ranked interactions to return.
         task_type: 'classification' or 'regression'
 
     Returns:
-        interactions_df: 包含交互特征对和重要性的DataFrame
+        interactions_df: DataFrame of feature pairs and their interaction importances.
     """
     logger.info(f"Detecting feature interactions (top_n={top_n})")
 
-    # 生成所有二阶交互特征
+    # Generate all second-order feature interactions.
     from itertools import combinations
 
     interactions = []
     feature_pairs = list(combinations(X.columns, 2))
 
-    # 限制交互数量以避免过多特征
+    # Limit the number of interactions to control feature expansion.
     if len(feature_pairs) > 100:
         logger.warning(f"Too many feature pairs ({len(feature_pairs)}), sampling 100 pairs")
         import random
         random.seed(42)
         feature_pairs = random.sample(feature_pairs, 100)
 
-    # 创建交互特征
+    # Create interaction features.
     X_interactions = X.copy()
     for feat1, feat2 in feature_pairs:
         interaction_name = f"{feat1}_x_{feat2}"
         X_interactions[interaction_name] = X[feat1] * X[feat2]
         interactions.append((feat1, feat2, interaction_name))
 
-    # 训练模型获取特征重要性
+    # Train a model to estimate feature importances.
     if task_type == 'classification':
         model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
     else:
@@ -683,11 +683,11 @@ def detect_feature_interactions(
 
     model.fit(X_interactions, y)
 
-    # 获取交互特征的重要性
+    # Get interaction feature importances.
     importances = model.feature_importances_
     feature_names = X_interactions.columns
 
-    # 只保留交互特征的重要性
+    # Retain only interaction feature importances.
     interaction_importances = []
     for feat1, feat2, interaction_name in interactions:
         idx = list(feature_names).index(interaction_name)
@@ -699,7 +699,7 @@ def detect_feature_interactions(
             'importance': importance
         })
 
-    # 创建DataFrame并排序
+    # Create and sort the DataFrame.
     interactions_df = pd.DataFrame(interaction_importances)
     interactions_df = interactions_df.sort_values('importance', ascending=False).head(top_n)
 
@@ -721,23 +721,23 @@ def train_single_model(
     cv_folds: int = 5
 ) -> Tuple[Any, Dict]:
     """
-    训练单个模型
+    Train a single model.
 
     Args:
-        X_train: 训练特征
-        y_train: 训练标签
-        model_name: 模型名称
+        X_train: Training features.
+        y_train: Training targets.
+        model_name: Model name.
         task_type: 'classification' or 'regression'
-        params: 模型参数字典（None使用默认参数）
-        cv_folds: 交叉验证折数
+        params: Model parameter dictionary; None uses default parameters.
+        cv_folds: Number of cross-validation folds.
 
     Returns:
-        model: 训练好的模型
-        info: 包含训练信息、CV分数的字典
+        model: Trained model.
+        info: Dictionary of training details and cross-validation scores.
     """
     logger.info(f"Training {model_name} model (task_type={task_type})")
 
-    # 获取模型类
+    # Get the model class.
     if task_type == 'classification':
         if model_name not in CLASSIFICATION_MODELS:
             raise ValueError(f"Unknown classification model: {model_name}")
@@ -749,21 +749,21 @@ def train_single_model(
         model_class = REGRESSION_MODELS[model_name]
         default_params = DEFAULT_PARAMS_REGRESSION.get(model_name, {})
 
-    # 合并参数
+    # Merge parameters.
     if params is None:
         params = default_params
     else:
         params = {**default_params, **params}
 
-    # 创建模型
+    # Create the model.
     model = model_class(**params)
 
-    # 训练模型
+    # Train the model.
     start_time = datetime.now()
     model.fit(X_train, y_train)
     training_time = (datetime.now() - start_time).total_seconds()
 
-    # 交叉验证
+    # Run cross-validation.
     cv_scores = cross_val_score(model, X_train, y_train, cv=cv_folds, n_jobs=-1)
 
     info = {
@@ -794,25 +794,25 @@ def hyperparameter_tuning(
     cv_folds: int = 5
 ) -> Tuple[Any, Dict]:
     """
-    超参数调优
+    Tune model hyperparameters.
 
     Args:
-        X_train: 训练特征
-        y_train: 训练标签
-        model_name: 模型名称
+        X_train: Training features.
+        y_train: Training targets.
+        model_name: Model name.
         task_type: 'classification' or 'regression'
         search_method: 'grid' or 'random'
-        param_grid: 参数网格（None使用默认）
-        n_iter: 随机搜索迭代次数
-        cv_folds: 交叉验证折数
+        param_grid: Parameter grid; None uses the default.
+        n_iter: Number of randomized search iterations.
+        cv_folds: Number of cross-validation folds.
 
     Returns:
-        best_model: 最佳模型
-        info: 包含最佳参数、CV分数、搜索历史的字典
+        best_model: Best-performing model.
+        info: Dictionary of best parameters, cross-validation scores, and search history.
     """
     logger.info(f"Hyperparameter tuning for {model_name} (method={search_method})")
 
-    # 获取模型类和参数网格
+    # Get the model class and parameter grid.
     if task_type == 'classification':
         if model_name not in CLASSIFICATION_MODELS:
             raise ValueError(f"Unknown classification model: {model_name}")
@@ -824,7 +824,7 @@ def hyperparameter_tuning(
         model_class = REGRESSION_MODELS[model_name]
         default_param_grid = PARAM_GRIDS_REGRESSION.get(model_name, {})
 
-    # 使用默认参数网格或自定义参数网格
+    # Use the default or supplied parameter grid.
     if param_grid is None:
         param_grid = default_param_grid
 
@@ -832,10 +832,10 @@ def hyperparameter_tuning(
         logger.warning(f"No parameter grid defined for {model_name}, using default parameters")
         return train_single_model(X_train, y_train, model_name, task_type, cv_folds=cv_folds)
 
-    # 创建基础模型
+    # Create the base model.
     base_model = model_class()
 
-    # 执行搜索
+    # Run the search.
     start_time = datetime.now()
     if search_method == 'grid':
         search = GridSearchCV(
@@ -895,24 +895,24 @@ def train_multiple_models(
     cv_folds: int = 5
 ) -> Tuple[Dict[str, Any], pd.DataFrame]:
     """
-    训练多个模型并比较性能
+    Train multiple models and compare their performance.
 
     Args:
-        X_train: 训练特征
-        y_train: 训练标签
-        X_test: 测试特征
-        y_test: 测试标签
+        X_train: Training features.
+        y_train: Training targets.
+        X_test: Test features.
+        y_test: Test targets.
         task_type: 'classification' or 'regression'
-        models_to_try: 要尝试的模型列表（None表示全部）
-        cv_folds: 交叉验证折数
+        models_to_try: List of models to evaluate; None includes all supported models.
+        cv_folds: Number of cross-validation folds.
 
     Returns:
-        models_dict: {model_name: trained_model}字典
-        comparison_df: 模型对比结果DataFrame
+        models_dict: Dictionary mapping model names to trained models.
+        comparison_df: DataFrame of model comparison results.
     """
     logger.info(f"Training multiple models (task_type={task_type})")
 
-    # 确定要训练的模型
+    # Determine which models to train.
     if models_to_try is None:
         if task_type == 'classification':
             models_to_try = list(CLASSIFICATION_MODELS.keys())
@@ -920,19 +920,19 @@ def train_multiple_models(
             models_to_try = list(REGRESSION_MODELS.keys())
 
     models_dict = {}
-    cv_scores_dict = {}  # 保存每个模型的交叉验证分数
+    cv_scores_dict = {}  # Store cross-validation scores for each model.
     results = []
 
     for model_name in models_to_try:
         try:
             logger.info(f"Training {model_name}...")
 
-            # 训练模型
+            # Train the model.
             model, train_info = train_single_model(
                 X_train, y_train, model_name, task_type, cv_folds=cv_folds
             )
 
-            # 在测试集上评估
+            # Evaluate on the test set.
             y_pred = model.predict(X_test)
 
             if task_type == 'classification':
@@ -966,16 +966,16 @@ def train_multiple_models(
 
             results.append(result)
             models_dict[model_name] = model
-            cv_scores_dict[model_name] = np.array(train_info['cv_scores'])  # 保存交叉验证分数
+            cv_scores_dict[model_name] = np.array(train_info['cv_scores'])  # Store cross-validation scores.
 
         except Exception as e:
             logger.error(f"Failed to train {model_name}: {str(e)}")
             continue
 
-    # 创建对比DataFrame
+    # Create the comparison DataFrame.
     comparison_df = pd.DataFrame(results)
 
-    # 排序
+    # Sort the results.
     if task_type == 'classification':
         comparison_df = comparison_df.sort_values('test_accuracy', ascending=False)
     else:
@@ -997,28 +997,28 @@ def evaluate_classification(
     class_names: Optional[List[str]] = None
 ) -> Dict:
     """
-    分类模型评估
+    Evaluate a classification model.
 
     Args:
-        model: 训练好的模型
-        X_test: 测试特征
-        y_test: 测试标签
-        class_names: 类别名称列表
+        model: Trained model.
+        X_test: Test features.
+        y_test: Test targets.
+        class_names: List of class names.
 
     Returns:
-        metrics: 包含accuracy, precision, recall, f1, roc_auc, confusion_matrix的字典
+        metrics: Dictionary containing accuracy, precision, recall, f1, roc_auc, and confusion_matrix.
     """
     logger.info("Evaluating classification model")
 
     y_pred = model.predict(X_test)
 
-    # 基础指标
+    # Basic metrics.
     accuracy = accuracy_score(y_test, y_pred)
     precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
     recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
     f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
 
-    # ROC AUC（如果模型支持概率预测）
+    # Compute ROC AUC when probability prediction is supported.
     try:
         if hasattr(model, 'predict_proba'):
             y_proba = model.predict_proba(X_test)
@@ -1033,10 +1033,10 @@ def evaluate_classification(
         logger.warning(f"Could not compute ROC AUC: {str(e)}")
         roc_auc = None
 
-    # 混淆矩阵
+    # Confusion matrix.
     cm = confusion_matrix(y_test, y_pred)
 
-    # 分类报告
+    # Classification report.
     report = classification_report(y_test, y_pred, target_names=class_names, output_dict=True, zero_division=0)
 
     metrics = {
@@ -1062,36 +1062,36 @@ def evaluate_regression(
     y_test: np.ndarray
 ) -> Dict:
     """
-    回归模型评估
+    Evaluate a regression model.
 
     Args:
-        model: 训练好的模型
-        X_test: 测试特征
-        y_test: 测试标签
+        model: Trained model.
+        X_test: Test features.
+        y_test: Test targets.
 
     Returns:
-        metrics: 包含MSE, RMSE, MAE, R2, adjusted_R2的字典
+        metrics: Dictionary containing MSE, RMSE, MAE, R2, and adjusted_R2.
     """
     logger.info("Evaluating regression model")
 
     y_pred = model.predict(X_test)
 
-    # 计算指标
+    # Compute metrics.
     mse = mean_squared_error(y_test, y_pred)
     rmse = np.sqrt(mse)
     mae = mean_absolute_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
 
-    # 计算调整R²
+    # Compute adjusted R-squared.
     n = len(y_test)
     p = X_test.shape[1]
     adjusted_r2 = 1 - (1 - r2) * (n - 1) / (n - p - 1)
 
-    # MAPE（平均绝对百分比误差）
+    # Mean absolute percentage error (MAPE).
     try:
         mape = mean_absolute_percentage_error(y_test, y_pred)
     except:
-        # 如果y_test中有0值，MAPE会失败
+        # MAPE is undefined or unstable when y_test contains zeros.
         mape = None
 
     metrics = {
@@ -1115,17 +1115,17 @@ def plot_feature_importance(
     top_n: int = 20
 ) -> plt.Figure:
     """
-    绘制特征重要性图
+    Plot feature importances.
 
     Args:
-        model: 训练好的模型
-        feature_names: 特征名称列表
-        top_n: 显示前N个特征
+        model: Trained model.
+        feature_names: List of feature names.
+        top_n: Number of highest-ranked features to display.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
-    # 获取特征重要性
+    # Get feature importances.
     if hasattr(model, 'feature_importances_'):
         importances = model.feature_importances_
     elif hasattr(model, 'coef_'):
@@ -1134,13 +1134,13 @@ def plot_feature_importance(
         logger.warning("Model does not have feature_importances_ or coef_ attribute")
         return None
 
-    # 创建DataFrame
+    # Create the DataFrame.
     importance_df = pd.DataFrame({
         'feature': feature_names,
         'importance': importances
     }).sort_values('importance', ascending=False).head(top_n)
 
-    # 绘图
+    # Draw the plot.
     fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
 
     colors = sns.color_palette("viridis", len(importance_df))
@@ -1163,19 +1163,19 @@ def plot_confusion_matrix(
     class_names: Optional[List[str]] = None
 ) -> plt.Figure:
     """
-    绘制混淆矩阵热图
+    Plot a confusion matrix heatmap.
 
     Args:
-        y_true: 真实标签
-        y_pred: 预测标签
-        class_names: 类别名称列表
+        y_true: True labels.
+        y_pred: Predicted labels.
+        class_names: List of class names.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     cm = confusion_matrix(y_true, y_pred)
 
-    # 如果没有提供类别名称，自动从数据中提取
+    # Infer class names from the data when they are not provided.
     if class_names is None:
         class_names = sorted(set(y_true) | set(y_pred))
         class_names = [str(c) for c in class_names]
@@ -1201,15 +1201,15 @@ def plot_roc_curves(
     y_test: np.ndarray
 ) -> plt.Figure:
     """
-    绘制多个模型的ROC曲线对比
+    Compare ROC curves for multiple models.
 
     Args:
         models_dict: {model_name: model_object}
-        X_test: 测试特征
-        y_test: 测试标签
+        X_test: Test features.
+        y_test: Test targets.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
 
@@ -1220,7 +1220,7 @@ def plot_roc_curves(
             if hasattr(model, 'predict_proba'):
                 y_proba = model.predict_proba(X_test)
 
-                # 二分类
+                # Binary classification.
                 if y_proba.shape[1] == 2:
                     fpr, tpr, _ = roc_curve(y_test, y_proba[:, 1])
                     roc_auc = auc(fpr, tpr)
@@ -1249,26 +1249,26 @@ def plot_prediction_vs_actual(
     y_pred: np.ndarray
 ) -> plt.Figure:
     """
-    绘制预测值vs实际值散点图（回归）
+    Plot predicted versus observed values for regression.
 
     Args:
-        y_true: 真实值
-        y_pred: 预测值
+        y_true: Observed values.
+        y_pred: Predicted values.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
 
-    # 散点图
+    # Scatter plot.
     ax.scatter(y_true, y_pred, alpha=0.5, s=50, edgecolors='k', linewidths=0.5)
 
-    # 理想线（y=x）
+    # Identity line (y = x).
     min_val = min(y_true.min(), y_pred.min())
     max_val = max(y_true.max(), y_pred.max())
     ax.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Perfect Prediction')
 
-    # 计算R²
+    # Compute R-squared.
     r2 = r2_score(y_true, y_pred)
 
     ax.set_xlabel('Actual Values', fontsize=12)
@@ -1287,20 +1287,20 @@ def plot_residuals(
     y_pred: np.ndarray
 ) -> plt.Figure:
     """
-    绘制残差图（回归）
+    Plot regression residuals.
 
     Args:
-        y_true: 真实值
-        y_pred: 预测值
+        y_true: Observed values.
+        y_pred: Predicted values.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     residuals = y_true - y_pred
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6), dpi=300)
 
-    # 残差散点图
+    # Residual scatter plot.
     ax1.scatter(y_pred, residuals, alpha=0.5, s=50, edgecolors='k', linewidths=0.5)
     ax1.axhline(y=0, color='r', linestyle='--', lw=2)
     ax1.set_xlabel('Predicted Values', fontsize=12)
@@ -1308,7 +1308,7 @@ def plot_residuals(
     ax1.set_title('Residual Plot', fontsize=14, fontweight='bold')
     ax1.grid(True, alpha=0.3)
 
-    # 残差直方图
+    # Residual histogram.
     ax2.hist(residuals, bins=30, edgecolor='black', alpha=0.7)
     ax2.axvline(x=0, color='r', linestyle='--', lw=2)
     ax2.set_xlabel('Residuals', fontsize=12)
@@ -1328,18 +1328,18 @@ def plot_learning_curves(
     cv_folds: int = 5
 ) -> plt.Figure:
     """
-    绘制学习曲线
+    Plot learning curves.
 
-    显示训练集和验证集的性能随样本数量变化
+    Show training and validation performance as the number of samples increases.
 
     Args:
-        model: 训练好的模型
-        X: 特征数组
-        y: 标签数组
-        cv_folds: 交叉验证折数
+        model: Trained model.
+        X: Feature array.
+        y: Target array.
+        cv_folds: Number of cross-validation folds.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     train_sizes, train_scores, val_scores = learning_curve(
         model, X, y, cv=cv_folds, n_jobs=-1,
@@ -1378,18 +1378,18 @@ def plot_cv_scores(
     metric_name: str = 'Score'
 ) -> plt.Figure:
     """
-    绘制交叉验证分数分布
+    Plot the distribution of cross-validation scores.
 
     Args:
-        cv_scores: 交叉验证分数数组
-        metric_name: 指标名称
+        cv_scores: Array of cross-validation scores.
+        metric_name: Metric name.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6), dpi=300)
 
-    # 条形图
+    # Bar chart.
     ax1.bar(range(1, len(cv_scores) + 1), cv_scores, color='steelblue', edgecolor='black')
     ax1.axhline(y=cv_scores.mean(), color='r', linestyle='--', lw=2, label=f'Mean = {cv_scores.mean():.4f}')
     ax1.set_xlabel('Fold', fontsize=12)
@@ -1398,7 +1398,7 @@ def plot_cv_scores(
     ax1.legend(fontsize=10)
     ax1.grid(True, alpha=0.3, axis='y')
 
-    # 箱线图
+    # Box plot.
     ax2.boxplot([cv_scores], labels=['CV Scores'], widths=0.5)
     ax2.set_ylabel(metric_name, fontsize=12)
     ax2.set_title(f'CV Score Distribution\nMean: {cv_scores.mean():.4f} ± {cv_scores.std():.4f}',
@@ -1424,24 +1424,24 @@ def save_model(
     task_type: Optional[str] = None
 ) -> bool:
     """
-    保存模型及相关信息
+    Save a model and associated information.
 
     Args:
-        model: 训练好的模型
-        filepath: 保存路径（.pkl或.joblib）
-        metadata: 元数据（性能指标、训练时间等）
-        feature_names: 特征名称列表
-        scaler: 特征缩放器
-        encoder: 编码器
+        model: Trained model.
+        filepath: Output path (.pkl or .joblib).
+        metadata: Metadata such as performance metrics and training time.
+        feature_names: List of feature names.
+        scaler: Feature scaler.
+        encoder: Encoder.
         task_type: 'classification' or 'regression'
 
     Returns:
-        success: 是否成功保存
+        success: Whether the model was saved successfully.
     """
     try:
         logger.info(f"Saving model to {filepath}")
 
-        # 创建模型包
+        # Create the model package.
         model_package = {
             'model': model,
             'task_type': task_type,
@@ -1452,10 +1452,10 @@ def save_model(
             'save_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
 
-        # 确保目录存在
+        # Ensure the directory exists.
         Path(filepath).parent.mkdir(parents=True, exist_ok=True)
 
-        # 保存
+        # Save the model package.
         joblib.dump(model_package, filepath, compress=3)
 
         logger.info(f"Model saved successfully to {filepath}")
@@ -1468,14 +1468,14 @@ def save_model(
 
 def load_model(filepath: str) -> Tuple[Any, Dict]:
     """
-    加载模型及元数据
+    Load a model and its metadata.
 
     Args:
-        filepath: 模型文件路径
+        filepath: Path to the model file.
 
     Returns:
-        model: 加载的模型
-        model_package: 完整的模型包字典
+        model: Loaded model.
+        model_package: Complete model package dictionary.
     """
     try:
         logger.info(f"Loading model from {filepath}")
@@ -1497,13 +1497,13 @@ def load_model(filepath: str) -> Tuple[Any, Dict]:
 
 def get_model_info(filepath: str) -> Dict:
     """
-    获取模型信息（不加载模型本身）
+    Read model information from the serialized model package.
 
     Args:
-        filepath: 模型文件路径
+        filepath: Path to the model file.
 
     Returns:
-        info: 模型信息字典
+        info: Dictionary of model information.
     """
     try:
         model_package = joblib.load(filepath)
@@ -1542,36 +1542,36 @@ def train_supervised_model(
     random_state: int = 42
 ) -> Tuple[Any, Dict]:
     """
-    训练监督学习模型（高级API）
+    Train a supervised model using the high-level API.
 
     Args:
-        data_df: 包含特征和目标的DataFrame（最后一列为目标）
-        target_column: 目标列名（None表示最后一列）
-        task_type: 'classification', 'regression', 'auto'（自动检测）
-        test_size: 测试集比例
-        model_name: 模型名称
-        feature_selection: 特征选择方法 (None, 'correlation', 'mutual_info', 'rfe', 'tree_based')
-        feature_scaling: 特征缩放方法 ('standard', 'minmax', 'robust', None)
-        hyperparameter_tuning: 是否进行超参数调优
-        cv_folds: 交叉验证折数
-        random_state: 随机种子
+        data_df: DataFrame containing features and a target, with the last column used by default.
+        target_column: Target column name; None selects the last column.
+        task_type: 'classification', 'regression', or 'auto' for automatic detection.
+        test_size: Fraction of samples reserved for testing.
+        model_name: Model name.
+        feature_selection: Selection method (None, 'correlation', 'mutual_info', 'rfe', 'tree_based').
+        feature_scaling: Scaling method ('standard', 'minmax', 'robust', or None).
+        hyperparameter_tuning: Enable hyperparameter tuning.
+        cv_folds: Number of cross-validation folds.
+        random_state: Random seed.
 
     Returns:
-        model: 训练好的模型
-        results: 包含评估指标、可视化、元数据的完整结果字典
+        model: Trained model.
+        results: Dictionary containing evaluation metrics, predictions, and metadata.
     """
     logger.info("Starting supervised learning pipeline")
 
-    # 确定目标列
+    # Determine the target column.
     if target_column is None:
         target_column = data_df.columns[-1]
         logger.info(f"Using last column as target: {target_column}")
 
-    # 分离特征和目标
+    # Separate features from the target.
     X = data_df.drop(columns=[target_column])
     y = data_df[target_column]
 
-    # 自动检测任务类型
+    # Detect the task type automatically.
     if task_type == 'auto':
         n_unique = y.nunique()
         if n_unique <= 20:
@@ -1581,7 +1581,7 @@ def train_supervised_model(
             task_type = 'regression'
             logger.info(f"Auto-detected task type: regression")
 
-    # 特征选择
+    # Feature selection.
     if feature_selection is not None:
         logger.info(f"Applying feature selection: {feature_selection}")
         if feature_selection == 'correlation':
@@ -1599,14 +1599,14 @@ def train_supervised_model(
 
     feature_names = X.columns.tolist()
 
-    # 划分训练集和测试集
+    # Split into training and test sets.
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=random_state
     )
 
     logger.info(f"Train set: {len(X_train)} samples, Test set: {len(X_test)} samples")
 
-    # 特征缩放
+    # Scale features.
     scaler = None
     if feature_scaling is not None:
         X_train_scaled, scaler = scale_features(X_train, method=feature_scaling, fit=True)
@@ -1615,7 +1615,7 @@ def train_supervised_model(
         X_train_scaled = X_train.values
         X_test_scaled = X_test.values
 
-    # 训练模型
+    # Train the model.
     if hyperparameter_tuning:
         logger.info("Training with hyperparameter tuning")
         model, train_info = hyperparameter_tuning(
@@ -1627,21 +1627,21 @@ def train_supervised_model(
             X_train_scaled, y_train, model_name, task_type, cv_folds=cv_folds
         )
 
-    # 评估模型
+    # Evaluate the model.
     if task_type == 'classification':
         metrics = evaluate_classification(model, X_test_scaled, y_test)
     else:
         metrics = evaluate_regression(model, X_test_scaled, y_test)
 
-    # 预测
+    # Generate predictions.
     y_pred = model.predict(X_test_scaled)
 
-    # 计算特征统计信息（用于虚拟样本生成）
+    # Compute feature statistics for virtual sample generation.
     feature_stats = {}
     for col in feature_names:
         col_data = X[col]
         n_unique = col_data.nunique()
-        # 判断是连续值还是离散值（唯一值少于10个或少于样本数的5%视为离散值）
+        # Treat features as categorical if they have at most 10 unique values or fewer than 5% of the sample count.
         is_categorical = n_unique <= 10 or n_unique < len(col_data) * 0.05
 
         if is_categorical:
@@ -1660,7 +1660,7 @@ def train_supervised_model(
                 'n_unique': n_unique
             }
 
-    # 组装结果
+    # Assemble the results.
     results = {
         'model': model,
         'task_type': task_type,
@@ -1696,37 +1696,37 @@ def compare_models_automl(
     random_state: int = 42
 ) -> Tuple[Any, pd.DataFrame, Dict]:
     """
-    AutoML流程 - 自动比较多个模型并选择最佳
+    Compare multiple models automatically and select the best performer.
 
     Args:
-        data_df: 包含特征和目标的DataFrame
-        target_column: 目标列名（None表示最后一列）
+        data_df: DataFrame containing features and the target.
+        target_column: Target column name; None selects the last column.
         task_type: 'classification', 'regression', 'auto'
-        models_to_compare: 要对比的模型列表（None表示全部）
-        test_size: 测试集比例
-        feature_selection: 特征选择方法
-        feature_scaling: 特征缩放方法
-        cv_folds: 交叉验证折数
-        tune_best: 是否对最佳模型进行超参数调优
-        random_state: 随机种子
+        models_to_compare: List of models to compare; None includes all supported models.
+        test_size: Fraction of samples reserved for testing.
+        feature_selection: Feature selection method.
+        feature_scaling: Feature scaling method.
+        cv_folds: Number of cross-validation folds.
+        tune_best: Tune the best model's hyperparameters.
+        random_state: Random seed.
 
     Returns:
-        best_model: 最佳模型
-        comparison_df: 模型对比结果DataFrame
-        all_results: 包含所有模型详细结果的字典
+        best_model: Best-performing model.
+        comparison_df: DataFrame of model comparison results.
+        all_results: Dictionary of detailed results for all models.
     """
     logger.info("Starting AutoML pipeline")
 
-    # 确定目标列
+    # Determine the target column.
     if target_column is None:
         target_column = data_df.columns[-1]
         logger.info(f"Using last column as target: {target_column}")
 
-    # 分离特征和目标
+    # Separate features from the target.
     X = data_df.drop(columns=[target_column])
     y = data_df[target_column]
 
-    # 自动检测任务类型
+    # Detect the task type automatically.
     if task_type == 'auto':
         n_unique = y.nunique()
         if n_unique <= 20:
@@ -1736,7 +1736,7 @@ def compare_models_automl(
             task_type = 'regression'
             logger.info(f"Auto-detected task type: regression")
 
-    # 特征选择
+    # Feature selection.
     if feature_selection is not None:
         logger.info(f"Applying feature selection: {feature_selection}")
         if feature_selection == 'correlation':
@@ -1752,14 +1752,14 @@ def compare_models_automl(
 
     feature_names = X.columns.tolist()
 
-    # 划分训练集和测试集
+    # Split into training and test sets.
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=random_state
     )
 
     logger.info(f"Train set: {len(X_train)} samples, Test set: {len(X_test)} samples")
 
-    # 特征缩放
+    # Scale features.
     scaler = None
     if feature_scaling is not None:
         X_train_scaled, scaler = scale_features(X_train, method=feature_scaling, fit=True)
@@ -1768,13 +1768,13 @@ def compare_models_automl(
         X_train_scaled = X_train.values
         X_test_scaled = X_test.values
 
-    # 训练多个模型
+    # Train multiple models.
     models_dict, comparison_df, cv_scores_dict = train_multiple_models(
         X_train_scaled, y_train, X_test_scaled, y_test,
         task_type=task_type, models_to_try=models_to_compare, cv_folds=cv_folds
     )
 
-    # 选择最佳模型
+    # Select the best model.
     if task_type == 'classification':
         best_model_name = comparison_df.iloc[0]['model']
     else:
@@ -1784,7 +1784,7 @@ def compare_models_automl(
 
     logger.info(f"Best model: {best_model_name}")
 
-    # 对最佳模型进行超参数调优
+    # Tune hyperparameters of the best model.
     if tune_best:
         logger.info(f"Tuning best model: {best_model_name}")
         best_model, tune_info = hyperparameter_tuning(
@@ -1793,16 +1793,16 @@ def compare_models_automl(
     else:
         tune_info = None
 
-    # 评估最佳模型
+    # Evaluate the best model.
     if task_type == 'classification':
         metrics = evaluate_classification(best_model, X_test_scaled, y_test)
     else:
         metrics = evaluate_regression(best_model, X_test_scaled, y_test)
 
-    # 生成预测结果
+    # Generate prediction results.
     predictions = best_model.predict(X_test_scaled)
 
-    # 计算特征统计信息（用于虚拟样本生成）
+    # Compute feature statistics for virtual sample generation.
     feature_stats = {}
     for col in feature_names:
         col_data = X[col]
@@ -1825,7 +1825,7 @@ def compare_models_automl(
                 'n_unique': n_unique
             }
 
-    # 组装结果
+    # Assemble the results.
     all_results = {
         'best_model': best_model,
         'best_model_name': best_model_name,
@@ -1859,22 +1859,22 @@ def plot_shap_analysis(
     max_display: int = 20
 ) -> plt.Figure:
     """
-    生成SHAP分析可视化
+    Generate a SHAP explanation plot.
 
     Args:
-        model: 训练好的模型
-        X_data: 特征数据（用于计算SHAP值）
-        feature_names: 特征名称列表
-        max_display: 最多显示的特征数量
+        model: Trained model.
+        X_data: Feature data used to calculate SHAP values.
+        feature_names: List of feature names.
+        max_display: Maximum number of features to display.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     try:
         import shap
     except ImportError:
         logger.warning("SHAP library not installed. Please install with: pip install shap")
-        # 返回一个提示图
+        # Return a figure explaining the unavailable dependency.
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, 'SHAP library not installed\nPlease install with: pip install shap',
                 ha='center', va='center', fontsize=14)
@@ -1882,14 +1882,14 @@ def plot_shap_analysis(
         return fig
 
     try:
-        # 创建SHAP explainer
+        # Create a SHAP explainer.
         explainer = shap.Explainer(model, X_data)
         shap_values = explainer(X_data)
 
-        # 创建图表
+        # Create the figure.
         fig, ax = plt.subplots(figsize=(12, 8), dpi=300)
 
-        # 生成summary plot
+        # Generate the summary plot.
         shap.summary_plot(shap_values, X_data, feature_names=feature_names,
                          max_display=max_display, show=False)
 
@@ -1900,7 +1900,7 @@ def plot_shap_analysis(
 
     except Exception as e:
         logger.error(f"Failed to generate SHAP analysis: {str(e)}")
-        # 返回错误提示图
+        # Return a figure containing the error message.
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f'Failed to generate SHAP analysis\nError: {str(e)}',
                 ha='center', va='center', fontsize=12)
@@ -1913,14 +1913,14 @@ def plot_cv_scores(
     metric_name: str = 'Score'
 ) -> plt.Figure:
     """
-    可视化交叉验证每一折的成绩
+    Visualize the score for each cross-validation fold.
 
     Args:
-        cv_scores_dict: 字典，键为模型名称，值为交叉验证分数数组
-        metric_name: 指标名称
+        cv_scores_dict: Dictionary mapping model names to cross-validation score arrays.
+        metric_name: Metric name.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     if not cv_scores_dict:
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -1931,16 +1931,16 @@ def plot_cv_scores(
 
     fig, ax = plt.subplots(figsize=(14, 8), dpi=300)
 
-    # 准备数据
+    # Prepare the data.
     models = list(cv_scores_dict.keys())
     n_models = len(models)
     n_folds = len(cv_scores_dict[models[0]])
 
-    # 设置x轴位置
+    # Set x-axis positions.
     x = np.arange(n_folds)
     width = 0.8 / n_models
 
-    # 为每个模型绘制柱状图
+    # Draw a bar series for each model.
     colors = plt.cm.Set3(np.linspace(0, 1, n_models))
 
     for i, (model_name, scores) in enumerate(cv_scores_dict.items()):
@@ -1948,14 +1948,14 @@ def plot_cv_scores(
         bars = ax.bar(x + offset, scores, width, label=model_name,
                      color=colors[i], alpha=0.8, edgecolor='black', linewidth=0.5)
 
-        # 在柱子上方显示数值
+        # Display values above the bars.
         for j, (bar, score) in enumerate(zip(bars, scores)):
             height = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2., height,
                    f'{score:.3f}',
                    ha='center', va='bottom', fontsize=8, rotation=0)
 
-    # 设置图表属性
+    # Configure the plot.
     ax.set_xlabel('Fold Number', fontsize=12, fontweight='bold')
     ax.set_ylabel(metric_name, fontsize=12, fontweight='bold')
     ax.set_title(f'Cross-Validation {metric_name} by Fold', fontsize=14, fontweight='bold', pad=20)

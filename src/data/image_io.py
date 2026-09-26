@@ -1,7 +1,7 @@
 """
-图像IO模块
+Image input/output utilities.
 
-提供图像的加载、保存和基本操作功能
+Provides image loading, saving, and basic image operations.
 """
 import cv2
 import numpy as np
@@ -16,9 +16,9 @@ logger = get_logger(__name__)
 
 
 class ImageIO:
-    """图像IO类"""
+    """Image input/output methods."""
 
-    # 支持的图像格式
+    # Supported image formats.
     SUPPORTED_FORMATS = ['.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp']
 
     @staticmethod
@@ -28,19 +28,19 @@ class ImageIO:
         backend: str = 'opencv'
     ) -> np.ndarray:
         """
-        加载图像
+        Load an image.
 
         Args:
-            image_path: 图像文件路径
-            grayscale: 是否转换为灰度图
-            backend: 使用的后端 ('opencv', 'pillow', 'skimage')
+            image_path: Path to the image file.
+            grayscale: Convert the image to grayscale.
+            backend: Image backend ('opencv', 'pillow', 'skimage').
 
         Returns:
-            图像数组 (H, W, C) 或 (H, W)
+            Image array (H, W, C) or (H, W).
 
         Raises:
-            FileNotFoundError: 文件不存在
-            ValueError: 不支持的图像格式
+            FileNotFoundError: If the file does not exist.
+            ValueError: If the image format is unsupported.
         """
         image_path = Path(image_path)
 
@@ -52,12 +52,12 @@ class ImageIO:
 
         try:
             if backend == 'opencv':
-                # OpenCV默认读取为BGR格式
+                # OpenCV reads color images in BGR order by default.
                 if grayscale:
                     image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
                 else:
                     image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
-                    # 转换为RGB格式
+                    # Convert to RGB.
                     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
             elif backend == 'pillow':
@@ -71,7 +71,7 @@ class ImageIO:
             elif backend == 'skimage':
                 image = skio.imread(str(image_path), as_gray=grayscale)
                 if not grayscale and image.ndim == 2:
-                    # 如果是灰度图但要求彩色，转换为3通道
+                    # Expand grayscale to three channels when color output is requested.
                     image = np.stack([image] * 3, axis=-1)
 
             else:
@@ -94,19 +94,19 @@ class ImageIO:
         backend: str = 'opencv'
     ) -> None:
         """
-        保存图像
+        Save an image.
 
         Args:
-            image: 图像数组
-            output_path: 输出文件路径
-            backend: 使用的后端 ('opencv', 'pillow', 'skimage')
+            image: Image array.
+            output_path: Output file path.
+            backend: Image backend ('opencv', 'pillow', 'skimage').
         """
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
             if backend == 'opencv':
-                # 如果是RGB格式，转换为BGR
+                # Convert RGB images to BGR.
                 if image.ndim == 3 and image.shape[2] == 3:
                     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
                 cv2.imwrite(str(output_path), image)
@@ -139,20 +139,20 @@ class ImageIO:
     @staticmethod
     def get_image_info(image_path: Union[str, Path]) -> dict:
         """
-        获取图像信息
+        Get image metadata.
 
         Args:
-            image_path: 图像文件路径
+            image_path: Path to the image file.
 
         Returns:
-            包含图像信息的字典
+            Dictionary of image metadata.
         """
         image_path = Path(image_path)
 
         if not image_path.exists():
             raise FileNotFoundError(f"Image file not found: {image_path}")
 
-        # 使用PIL获取基本信息（不加载完整图像）
+        # Use PIL to read basic metadata without loading the full image.
         with Image.open(image_path) as img:
             info = {
                 'path': str(image_path),
@@ -173,15 +173,15 @@ class ImageIO:
         backend: str = 'opencv'
     ) -> List[np.ndarray]:
         """
-        批量加载图像
+        Load multiple images.
 
         Args:
-            image_paths: 图像文件路径列表
-            grayscale: 是否转换为灰度图
-            backend: 使用的后端
+            image_paths: List of image file paths.
+            grayscale: Convert the image to grayscale.
+            backend: Image backend.
 
         Returns:
-            图像数组列表
+            List of image arrays.
         """
         images = []
         for path in image_paths:
@@ -198,24 +198,24 @@ class ImageIO:
 
 def load_image(image_path: Union[str, Path], grayscale: bool = False) -> np.ndarray:
     """
-    加载图像的便捷函数
+    Convenience wrapper for loading an image.
 
     Args:
-        image_path: 图像文件路径
-        grayscale: 是否转换为灰度图
+        image_path: Path to the image file.
+        grayscale: Convert the image to grayscale.
 
     Returns:
-        图像数组
+        Image array.
     """
     return ImageIO.load_image(image_path, grayscale=grayscale)
 
 
 def save_image(image: np.ndarray, output_path: Union[str, Path]) -> None:
     """
-    保存图像的便捷函数
+    Convenience wrapper for saving an image.
 
     Args:
-        image: 图像数组
-        output_path: 输出文件路径
+        image: Image array.
+        output_path: Output file path.
     """
     ImageIO.save_image(image, output_path)

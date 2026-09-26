@@ -1,7 +1,7 @@
 """
-细胞形态学特征提取模块
+Cell morphology feature extraction.
 
-提取单个细胞的几何形态学特征
+Extract geometric and morphological features for individual cells.
 """
 import numpy as np
 import pandas as pd
@@ -12,17 +12,17 @@ from loguru import logger
 
 def extract_cell_features(mask: np.ndarray, pixel_size: float = 1.0, min_area: int = 100) -> pd.DataFrame:
     """
-    提取细胞形态学特征
+    Extract cell morphology features.
 
     Args:
-        mask: 分割掩码，每个细胞有唯一标签
-        pixel_size: 像素大小(μm/pixel)，用于转换为实际尺寸
-        min_area: 最小细胞面积阈值（像素），过滤掉面积小于此值的细胞
+        mask: Segmentation mask with a unique label for each cell.
+        pixel_size: Pixel size in micrometers per pixel for conversion to physical units.
+        min_area: Minimum cell area in pixels; smaller cells are excluded.
 
     Returns:
-        包含所有细胞特征的DataFrame
+        DataFrame containing features for all retained cells.
     """
-    # 使用regionprops提取特征
+    # Extract features using regionprops.
     regions = measure.regionprops(mask)
 
     if len(regions) == 0:
@@ -30,48 +30,48 @@ def extract_cell_features(mask: np.ndarray, pixel_size: float = 1.0, min_area: i
         return pd.DataFrame()
 
     features_list = []
-    sequential_id = 0  # 连续ID计数器
+    sequential_id = 0  # Sequential ID counter.
 
     for region in regions:
-        # 过滤面积过小的细胞
+        # Exclude cells below the minimum area.
         if region.area < min_area:
             continue
 
-        sequential_id += 1  # 递增连续ID
+        sequential_id += 1  # Increment the sequential ID.
 
         features = {
-            # 基本标识 - 双ID系统
-            'sequential_id': sequential_id,  # 连续ID (1, 2, 3...)
-            'cell_id': region.label,  # 原始mask标签ID（可能不连续）
+            # Cell identifiers: sequential ID and original mask label.
+            'sequential_id': sequential_id,  # Sequential ID (1, 2, 3, ...).
+            'cell_id': region.label,  # Original mask label, which may be nonconsecutive.
 
-            # 位置特征
+            # Position features.
             'centroid_y': region.centroid[0],
             'centroid_x': region.centroid[1],
 
-            # 面积和周长特征
+            # Area and perimeter features.
             'area_pixels': region.area,
             'area_um2': region.area * (pixel_size ** 2),
             'perimeter_pixels': region.perimeter,
             'perimeter_um': region.perimeter * pixel_size,
 
-            # 形状特征
+            # Shape features.
             'major_axis_length': region.major_axis_length * pixel_size,
             'minor_axis_length': region.minor_axis_length * pixel_size,
             'eccentricity': region.eccentricity,
             'solidity': region.solidity,
             'extent': region.extent,
 
-            # 计算圆度 (4π*面积/周长²)
+            # Compute circularity (4*pi*area/perimeter^2).
             'circularity': (4 * np.pi * region.area) / (region.perimeter ** 2) if region.perimeter > 0 else 0,
 
-            # 长宽比
+            # Aspect ratio.
             'aspect_ratio': region.major_axis_length / region.minor_axis_length if region.minor_axis_length > 0 else 0,
 
-            # 等效直径
+            # Equivalent diameter.
             'equivalent_diameter_pixels': region.equivalent_diameter,
             'equivalent_diameter_um': region.equivalent_diameter * pixel_size,
 
-            # 边界框
+            # Bounding box.
             'bbox_min_row': region.bbox[0],
             'bbox_min_col': region.bbox[1],
             'bbox_max_row': region.bbox[2],
@@ -89,13 +89,13 @@ def extract_cell_features(mask: np.ndarray, pixel_size: float = 1.0, min_area: i
 
 def get_feature_statistics(df: pd.DataFrame) -> Dict:
     """
-    计算特征的统计信息
+    Compute feature summary statistics.
 
     Args:
-        df: 特征DataFrame
+        df: Feature DataFrame.
 
     Returns:
-        统计信息字典
+        Dictionary of summary statistics.
     """
     if df.empty:
         return {}
@@ -124,17 +124,17 @@ def filter_cells_by_features(df: pd.DataFrame,
                              min_circularity: float = None,
                              max_circularity: float = None) -> pd.DataFrame:
     """
-    根据特征过滤细胞
+    Filter cells by feature values.
 
     Args:
-        df: 特征DataFrame
-        min_area: 最小面积(μm²)
-        max_area: 最大面积(μm²)
-        min_circularity: 最小圆度
-        max_circularity: 最大圆度
+        df: Feature DataFrame.
+        min_area: Minimum area in square micrometers.
+        max_area: Maximum area in square micrometers.
+        min_circularity: Minimum circularity.
+        max_circularity: Maximum circularity.
 
     Returns:
-        过滤后的DataFrame
+        Filtered DataFrame.
     """
     filtered_df = df.copy()
 

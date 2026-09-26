@@ -1,7 +1,7 @@
 """
-聚类分析模块
+Clustering analysis for cell morphology features.
 
-提供多种无监督聚类算法，用于细胞形态学特征的分类分析
+Group cells by morphology with several unsupervised clustering algorithms.
 """
 import numpy as np
 import pandas as pd
@@ -16,19 +16,19 @@ from loguru import logger
 
 def preprocess_features(features_df: pd.DataFrame, exclude_cols: Optional[List[str]] = None) -> Tuple[np.ndarray, List[str], StandardScaler]:
     """
-    预处理特征数据：排除非特征列并进行标准化
+    Exclude metadata columns and standardize numeric features.
 
     Args:
-        features_df: 特征DataFrame
-        exclude_cols: 需要排除的列名列表（如果为None，使用默认排除列表）
+        features_df: DataFrame of cell features.
+        exclude_cols: Column names to exclude, or None to use the default exclusions.
 
     Returns:
-        features_scaled: 标准化后的特征数组
-        feature_cols: 使用的特征列名列表
-        scaler: 标准化器对象（用于逆变换）
+        features_scaled: Standardized feature array.
+        feature_cols: Names of the feature columns used.
+        scaler: Fitted scaler, also usable for inverse transformation.
     """
     if exclude_cols is None:
-        # 默认排除的列：ID、位置、边界框
+        # Exclude identifiers, positions, and bounding boxes by default.
         exclude_cols = [
             'sequential_id', 'cell_id',
             'centroid_x', 'centroid_y',
@@ -36,18 +36,18 @@ def preprocess_features(features_df: pd.DataFrame, exclude_cols: Optional[List[s
             'bbox_max_row', 'bbox_max_col'
         ]
 
-    # 获取特征列
+    # Select feature columns.
     feature_cols = [col for col in features_df.columns if col not in exclude_cols]
 
-    # 提取特征数据
+    # Extract feature data.
     features = features_df[feature_cols].values
 
-    # 检查是否有NaN或Inf
+    # Check for NaN and infinite values.
     if np.any(np.isnan(features)) or np.any(np.isinf(features)):
         logger.warning("Features contain NaN or Inf values, replacing with column means")
         features = pd.DataFrame(features, columns=feature_cols).fillna(method='ffill').fillna(0).values
 
-    # 标准化
+    # Standardize features.
     scaler = StandardScaler()
     features_scaled = scaler.fit_transform(features)
 
@@ -58,25 +58,25 @@ def preprocess_features(features_df: pd.DataFrame, exclude_cols: Optional[List[s
 
 def perform_kmeans(features_df: pd.DataFrame, n_clusters: int = 3, random_state: int = 42) -> Tuple[np.ndarray, Dict]:
     """
-    执行K-means聚类
+    Cluster features with k-means.
 
     Args:
-        features_df: 特征DataFrame
-        n_clusters: 聚类数量
-        random_state: 随机种子
+        features_df: DataFrame of cell features.
+        n_clusters: Number of clusters.
+        random_state: Random seed.
 
     Returns:
-        labels: 聚类标签数组
-        info: 包含聚类信息的字典（模型、惯性等）
+        labels: Array of cluster labels.
+        info: Dictionary containing the fitted model, inertia, and other metadata.
     """
-    # 预处理特征
+    # Preprocess the features.
     features_scaled, feature_cols, scaler = preprocess_features(features_df)
 
-    # 执行K-means聚类
+    # Run k-means clustering.
     kmeans = KMeans(n_clusters=n_clusters, random_state=random_state, n_init=10)
     labels = kmeans.fit_predict(features_scaled)
 
-    # 计算聚类质量指标
+    # Compute clustering quality metrics.
     silhouette = silhouette_score(features_scaled, labels) if n_clusters > 1 else 0
     davies_bouldin = davies_bouldin_score(features_scaled, labels) if n_clusters > 1 else 0
     calinski_harabasz = calinski_harabasz_score(features_scaled, labels) if n_clusters > 1 else 0
@@ -99,39 +99,39 @@ def perform_kmeans(features_df: pd.DataFrame, n_clusters: int = 3, random_state:
 
 def perform_dbscan(features_df: pd.DataFrame, eps: Optional[float] = None, min_samples: int = 5) -> Tuple[np.ndarray, Dict]:
     """
-    执行DBSCAN聚类（基于密度的聚类）
+    Cluster features with density-based DBSCAN.
 
     Args:
-        features_df: 特征DataFrame
-        eps: 邻域半径（如果为None，自动估计）
-        min_samples: 核心点的最小邻居数
+        features_df: DataFrame of cell features.
+        eps: Neighborhood radius, estimated automatically when None.
+        min_samples: Minimum neighborhood sample count for a core point.
 
     Returns:
-        labels: 聚类标签数组（-1表示噪声点）
-        info: 包含聚类信息的字典
+        labels: Cluster labels, with -1 indicating noise.
+        info: Dictionary of clustering metadata.
     """
-    # 预处理特征
+    # Preprocess the features.
     features_scaled, feature_cols, scaler = preprocess_features(features_df)
 
-    # 如果eps未指定，使用k-distance图自动估计
+    # Estimate eps from nearest-neighbor distances when it is not specified.
     if eps is None:
         neighbors = NearestNeighbors(n_neighbors=min_samples)
         neighbors.fit(features_scaled)
         distances, _ = neighbors.kneighbors(features_scaled)
         distances = np.sort(distances[:, -1])
-        # 使用90th百分位数作为eps
+        # Use the 90th distance percentile as eps.
         eps = np.percentile(distances, 90)
         logger.info(f"Auto-estimated eps={eps:.3f}")
 
-    # 执行DBSCAN聚类
+    # Run DBSCAN clustering.
     dbscan = DBSCAN(eps=eps, min_samples=min_samples)
     labels = dbscan.fit_predict(features_scaled)
 
-    # 计算聚类数量（排除噪声点）
+    # Count clusters, excluding noise.
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
     n_noise = list(labels).count(-1)
 
-    # 计算聚类质量指标（排除噪声点）
+    # Compute clustering metrics after excluding noise.
     if n_clusters > 1:
         mask = labels != -1
         if mask.sum() > 0:
@@ -163,25 +163,25 @@ def perform_dbscan(features_df: pd.DataFrame, eps: Optional[float] = None, min_s
 
 def perform_hierarchical(features_df: pd.DataFrame, n_clusters: int = 3, linkage: str = 'ward') -> Tuple[np.ndarray, Dict]:
     """
-    执行层次聚类
+    Perform agglomerative hierarchical clustering.
 
     Args:
-        features_df: 特征DataFrame
-        n_clusters: 聚类数量
-        linkage: 链接方法 ('ward', 'complete', 'average', 'single')
+        features_df: DataFrame of cell features.
+        n_clusters: Number of clusters.
+        linkage: Linkage method: 'ward', 'complete', 'average', or 'single'.
 
     Returns:
-        labels: 聚类标签数组
-        info: 包含聚类信息的字典
+        labels: Array of cluster labels.
+        info: Dictionary of clustering metadata.
     """
-    # 预处理特征
+    # Preprocess the features.
     features_scaled, feature_cols, scaler = preprocess_features(features_df)
 
-    # 执行层次聚类
+    # Run hierarchical clustering.
     hierarchical = AgglomerativeClustering(n_clusters=n_clusters, linkage=linkage)
     labels = hierarchical.fit_predict(features_scaled)
 
-    # 计算聚类质量指标
+    # Compute clustering quality metrics.
     silhouette = silhouette_score(features_scaled, labels) if n_clusters > 1 else 0
     davies_bouldin = davies_bouldin_score(features_scaled, labels) if n_clusters > 1 else 0
     calinski_harabasz = calinski_harabasz_score(features_scaled, labels) if n_clusters > 1 else 0
@@ -204,25 +204,25 @@ def perform_hierarchical(features_df: pd.DataFrame, n_clusters: int = 3, linkage
 
 def perform_gmm(features_df: pd.DataFrame, n_components: int = 3, random_state: int = 42) -> Tuple[np.ndarray, Dict]:
     """
-    执行高斯混合模型聚类
+    Cluster features with a Gaussian mixture model.
 
     Args:
-        features_df: 特征DataFrame
-        n_components: 高斯分量数量
-        random_state: 随机种子
+        features_df: DataFrame of cell features.
+        n_components: Number of Gaussian components.
+        random_state: Random seed.
 
     Returns:
-        labels: 聚类标签数组
-        info: 包含聚类信息的字典
+        labels: Array of cluster labels.
+        info: Dictionary of clustering metadata.
     """
-    # 预处理特征
+    # Preprocess the features.
     features_scaled, feature_cols, scaler = preprocess_features(features_df)
 
-    # 执行GMM聚类
+    # Fit a Gaussian mixture model.
     gmm = GaussianMixture(n_components=n_components, random_state=random_state, covariance_type='full')
     labels = gmm.fit_predict(features_scaled)
 
-    # 计算聚类质量指标
+    # Compute clustering quality metrics.
     silhouette = silhouette_score(features_scaled, labels) if n_components > 1 else 0
     davies_bouldin = davies_bouldin_score(features_scaled, labels) if n_components > 1 else 0
     calinski_harabasz = calinski_harabasz_score(features_scaled, labels) if n_components > 1 else 0
@@ -246,14 +246,14 @@ def perform_gmm(features_df: pd.DataFrame, n_components: int = 3, random_state: 
 
 def evaluate_clustering(features: np.ndarray, labels: np.ndarray) -> Dict[str, float]:
     """
-    评估聚类质量
+    Evaluate clustering quality.
 
     Args:
-        features: 特征数组
-        labels: 聚类标签数组
+        features: Feature array.
+        labels: Array of cluster labels.
 
     Returns:
-        包含评估指标的字典
+        Dictionary of evaluation metrics.
     """
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
 
@@ -265,7 +265,7 @@ def evaluate_clustering(features: np.ndarray, labels: np.ndarray) -> Dict[str, f
             'n_clusters': n_clusters
         }
 
-    # 排除噪声点（DBSCAN可能产生-1标签）
+    # Exclude DBSCAN noise points labeled -1.
     mask = labels != -1
     if mask.sum() == 0:
         return {
@@ -278,7 +278,7 @@ def evaluate_clustering(features: np.ndarray, labels: np.ndarray) -> Dict[str, f
     features_clean = features[mask]
     labels_clean = labels[mask]
 
-    # 计算评估指标
+    # Compute evaluation metrics.
     silhouette = silhouette_score(features_clean, labels_clean)
     davies_bouldin = davies_bouldin_score(features_clean, labels_clean)
     calinski_harabasz = calinski_harabasz_score(features_clean, labels_clean)
@@ -293,17 +293,17 @@ def evaluate_clustering(features: np.ndarray, labels: np.ndarray) -> Dict[str, f
 
 def find_optimal_clusters(features_df: pd.DataFrame, max_k: int = 10, method: str = 'kmeans') -> Dict:
     """
-    寻找最佳聚类数量
+    Evaluate candidate cluster counts and select the best silhouette score.
 
     Args:
-        features_df: 特征DataFrame
-        max_k: 最大聚类数量
-        method: 聚类方法 ('kmeans', 'gmm')
+        features_df: DataFrame of cell features.
+        max_k: Maximum number of clusters to evaluate.
+        method: Clustering method: 'kmeans' or 'gmm'.
 
     Returns:
-        包含不同k值评估结果的字典
+        Dictionary of evaluation results for the tested cluster counts.
     """
-    # 预处理特征
+    # Preprocess the features.
     features_scaled, feature_cols, scaler = preprocess_features(features_df)
 
     results = {
@@ -332,7 +332,7 @@ def find_optimal_clusters(features_df: pd.DataFrame, max_k: int = 10, method: st
             results['bic_scores'].append(gmm.bic(features_scaled))
             results['aic_scores'].append(gmm.aic(features_scaled))
 
-        # 计算评估指标
+        # Compute evaluation metrics.
         silhouette = silhouette_score(features_scaled, labels)
         davies_bouldin = davies_bouldin_score(features_scaled, labels)
         calinski_harabasz = calinski_harabasz_score(features_scaled, labels)
@@ -342,7 +342,7 @@ def find_optimal_clusters(features_df: pd.DataFrame, max_k: int = 10, method: st
         results['davies_bouldin_scores'].append(davies_bouldin)
         results['calinski_harabasz_scores'].append(calinski_harabasz)
 
-    # 找到最佳k值（基于轮廓系数）
+    # Select the best k using the silhouette score.
     best_k_idx = np.argmax(results['silhouette_scores'])
     best_k = results['k_values'][best_k_idx]
 

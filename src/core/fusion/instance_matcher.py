@@ -1,7 +1,7 @@
 """
-实例匹配模块
+Instance matching.
 
-使用IoU阈值和贪婪匹配算法找出不同模型中代表同一个细胞的预测
+Use an IoU threshold and greedy matching to identify predictions of the same cell across models.
 """
 import numpy as np
 from typing import List, Tuple
@@ -12,14 +12,14 @@ logger = get_logger(__name__)
 
 def compute_iou(mask1: np.ndarray, mask2: np.ndarray) -> float:
     """
-    计算两个二值掩码的IoU (Intersection over Union)
+    Compute the intersection over union (IoU) of two binary masks.
 
     Args:
-        mask1: 第一个二值掩码
-        mask2: 第二个二值掩码
+        mask1: First binary mask.
+        mask2: Second binary mask.
 
     Returns:
-        IoU值 (0-1范围)
+        IoU in the range [0, 1].
     """
     intersection = np.logical_and(mask1, mask2)
     union = np.logical_or(mask1, mask2)
@@ -33,18 +33,18 @@ def compute_iou(mask1: np.ndarray, mask2: np.ndarray) -> float:
 
 def extract_instances(mask: np.ndarray, model_idx: int) -> List[dict]:
     """
-    从标签掩码中提取所有实例
+    Extract all instances from a labeled mask.
 
     Args:
-        mask: 标签掩码，每个细胞有唯一的整数ID
-        model_idx: 模型索引
+        mask: Labeled mask with a unique integer ID for each cell.
+        model_idx: Model index.
 
     Returns:
-        实例列表，每个实例包含 {model_idx, instance_id, binary_mask, area}
+        List of instances containing {model_idx, instance_id, binary_mask, area}.
     """
     instances = []
     unique_ids = np.unique(mask)
-    unique_ids = unique_ids[unique_ids != 0]  # 跳过背景
+    unique_ids = unique_ids[unique_ids != 0]  # Skip the background.
 
     for inst_id in unique_ids:
         binary_mask = (mask == inst_id)
@@ -63,36 +63,36 @@ def extract_instances(mask: np.ndarray, model_idx: int) -> List[dict]:
 def match_instances(masks_list: List[np.ndarray],
                    iou_threshold: float = 0.5) -> List[List[Tuple[int, int]]]:
     """
-    匹配多个模型的实例
+    Match instances across multiple models.
 
-    使用贪婪匹配算法：
-    1. 从所有模型中提取实例，构建候选池
-    2. 按面积排序（大细胞优先）
-    3. 对每个实例，找出与其IoU>threshold的其他实例
-    4. 将匹配的实例分组
+    Greedy matching procedure:
+    1. Extract instances from all models to build a candidate pool.
+    2. Sort by area, largest first.
+    3. Find instances whose IoU exceeds the threshold for each candidate.
+    4. Group the matched instances.
 
     Args:
-        masks_list: 多个模型的标签掩码列表
-        iou_threshold: IoU匹配阈值
+        masks_list: List of labeled masks from multiple models.
+        iou_threshold: IoU threshold for matching.
 
     Returns:
-        匹配组列表，每组包含 [(model_idx, instance_id), ...]
+        List of matched groups containing [(model_idx, instance_id), ...].
     """
-    logger.info(f"开始实例匹配，共{len(masks_list)}个模型，IoU阈值={iou_threshold}")
+    logger.info(f"Starting instance matching: models={len(masks_list)}, IoU threshold={iou_threshold}")
 
-    # 1. 提取所有模型的所有实例，构建候选池
+    # 1. Extract instances from all models to build the candidate pool.
     proposals = []
     for model_idx, mask in enumerate(masks_list):
         instances = extract_instances(mask, model_idx)
         proposals.extend(instances)
-        logger.info(f"模型{model_idx}提取到{len(instances)}个实例")
+        logger.info(f"Model {model_idx}: extracted {len(instances)} instances")
 
-    logger.info(f"候选池共{len(proposals)}个实例")
+    logger.info(f"Candidate pool: {len(proposals)} instances")
 
-    # 2. 按面积排序（大细胞优先，通常更鲁棒）
+    # 2. Sort by area, prioritizing larger cells for more robust matching.
     sorted_indices = np.argsort([-p['area'] for p in proposals])
 
-    # 3. 贪婪匹配
+    # 3. Perform greedy matching.
     matched_groups = []
     processed_indices = set()
 
@@ -100,23 +100,23 @@ def match_instances(masks_list: List[np.ndarray],
         if i in processed_indices:
             continue
 
-        # 当前实例作为组的起点
+        # Start a group with the current instance.
         current_proposal = proposals[i]
         current_group = [(current_proposal['model_idx'], current_proposal['instance_id'])]
         processed_indices.add(i)
 
-        # 在剩余的实例中寻找与当前实例IoU足够高的
+        # Find remaining instances whose IoU with the current instance meets the threshold.
         for j in sorted_indices:
             if j in processed_indices:
                 continue
 
             other_proposal = proposals[j]
 
-            # 跳过来自同一模型的实例（一个模型不能匹配自己）
+            # Skip instances from the same model; a model cannot match itself.
             if other_proposal['model_idx'] == current_proposal['model_idx']:
                 continue
 
-            # 计算IoU
+            # Compute IoU.
             iou = compute_iou(current_proposal['binary_mask'],
                             other_proposal['binary_mask'])
 
@@ -125,13 +125,13 @@ def match_instances(masks_list: List[np.ndarray],
                                     other_proposal['instance_id']))
                 processed_indices.add(j)
 
-        # 将匹配组添加到结果中
+        # Append the matched group to the results.
         matched_groups.append(current_group)
 
-    logger.info(f"匹配完成，共{len(matched_groups)}个实例组")
+    logger.info(f"Matching complete: {len(matched_groups)} instance groups")
 
-    # 统计匹配情况
+    # Summarize matching statistics.
     multi_model_groups = [g for g in matched_groups if len(g) > 1]
-    logger.info(f"其中{len(multi_model_groups)}个组包含多个模型的预测")
+    logger.info(f"{len(multi_model_groups)} groups contain predictions from multiple models")
 
     return matched_groups

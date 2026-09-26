@@ -1,7 +1,7 @@
 """
-数据增强模块
+Data augmentation.
 
-提供用于细胞分割的数据增强变换
+Provides data augmentation transforms for cell segmentation.
 """
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
@@ -14,16 +14,16 @@ logger = get_logger(__name__)
 
 def get_training_augmentation(image_size: tuple = (256, 256)):
     """
-    获取训练时的数据增强
+    Get training augmentation transforms.
 
     Args:
-        image_size: 目标图像尺寸 (height, width)
+        image_size: Target image dimensions (height, width).
 
     Returns:
-        albumentations变换组合
+        Composed albumentations transforms.
     """
     train_transform = A.Compose([
-        # 几何变换
+        # Geometric transforms.
         A.Resize(height=image_size[0], width=image_size[1]),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
@@ -35,7 +35,7 @@ def get_training_augmentation(image_size: tuple = (256, 256)):
             p=0.5
         ),
 
-        # 弹性变形（对细胞分割很有用）
+        # Elastic deformation for cell-image augmentation.
         A.ElasticTransform(
             alpha=1,
             sigma=50,
@@ -43,7 +43,7 @@ def get_training_augmentation(image_size: tuple = (256, 256)):
             p=0.3
         ),
 
-        # 网格扭曲
+        # Grid distortion.
         A.GridDistortion(p=0.3),
     ])
 
@@ -53,13 +53,13 @@ def get_training_augmentation(image_size: tuple = (256, 256)):
 
 def get_validation_augmentation(image_size: tuple = (256, 256)):
     """
-    获取验证时的数据增强（仅调整大小）
+    Get validation transforms, applying resizing only.
 
     Args:
-        image_size: 目标图像尺寸 (height, width)
+        image_size: Target image dimensions (height, width).
 
     Returns:
-        albumentations变换组合
+        Composed albumentations transforms.
     """
     val_transform = A.Compose([
         A.Resize(height=image_size[0], width=image_size[1]),
@@ -71,13 +71,13 @@ def get_validation_augmentation(image_size: tuple = (256, 256)):
 
 def get_test_augmentation(image_size: tuple = (256, 256)):
     """
-    获取测试时的数据增强（仅调整大小）
+    Get test transforms, applying resizing only.
 
     Args:
-        image_size: 目标图像尺寸 (height, width)
+        image_size: Target image dimensions (height, width).
 
     Returns:
-        albumentations变换组合
+        Composed albumentations transforms.
     """
     test_transform = A.Compose([
         A.Resize(height=image_size[0], width=image_size[1]),

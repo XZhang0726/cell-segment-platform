@@ -1,5 +1,5 @@
 """
-训练配置单元测试
+Unit tests for training configuration
 """
 import pytest
 import yaml
@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 import tempfile
 
-# 添加项目根目录到路径
+# Add the project root to the import path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
@@ -15,13 +15,13 @@ from src.training.config import TrainingConfig, get_default_config
 
 
 class TestTrainingConfig:
-    """测试训练配置类"""
+    """Test the training configuration"""
 
     def test_default_config(self):
-        """测试默认配置"""
+        """Test the default configuration"""
         config = TrainingConfig()
 
-        # 检查默认值
+        # Check the default values
         assert config.model_name == "unet"
         assert config.n_channels == 3
         assert config.n_classes == 1
@@ -30,7 +30,7 @@ class TestTrainingConfig:
         assert config.learning_rate == 1e-4
 
     def test_custom_config(self):
-        """测试自定义配置"""
+        """Test custom configuration values"""
         config = TrainingConfig(
             model_name="custom_unet",
             epochs=50,
@@ -44,17 +44,17 @@ class TestTrainingConfig:
         assert config.learning_rate == 1e-3
 
     def test_save_config(self):
-        """测试保存配置"""
+        """Test saving the configuration"""
         config = TrainingConfig(epochs=50, batch_size=16)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yaml"
             config.save(str(config_path))
 
-            # 检查文件是否存在
+            # Check that the file exists
             assert config_path.exists()
 
-            # 检查文件内容
+            # Check the file contents
             with open(config_path, 'r', encoding='utf-8') as f:
                 saved_data = yaml.safe_load(f)
 
@@ -62,38 +62,38 @@ class TestTrainingConfig:
             assert saved_data['batch_size'] == 16
 
     def test_load_config(self):
-        """测试加载配置"""
+        """Test loading the configuration"""
         config = TrainingConfig(epochs=50, batch_size=16, learning_rate=1e-3)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yaml"
             config.save(str(config_path))
 
-            # 加载配置
+            # Load the configuration
             loaded_config = TrainingConfig.load(str(config_path))
 
-            # 检查加载的配置是否正确
+            # Check the loaded configuration
             assert loaded_config.epochs == 50
             assert loaded_config.batch_size == 16
             assert loaded_config.learning_rate == 1e-3
 
     def test_load_nonexistent_config(self):
-        """测试加载不存在的配置文件"""
+        """Test loading a missing configuration file"""
         with pytest.raises(FileNotFoundError):
             TrainingConfig.load("nonexistent_config.yaml")
 
 
 class TestGetDefaultConfig:
-    """测试获取默认配置函数"""
+    """Test the default configuration factory"""
 
     def test_get_default_config(self):
-        """测试获取默认配置"""
+        """Test default configuration retrieval"""
         config = get_default_config()
 
-        # 应该返回TrainingConfig实例
+        # The result should be a TrainingConfig instance
         assert isinstance(config, TrainingConfig)
 
-        # 检查默认值
+        # Check the default values
         assert config.model_name == "unet"
         assert config.epochs == 100
         assert config.batch_size == 8

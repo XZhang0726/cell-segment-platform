@@ -1,7 +1,7 @@
 """
-训练配置管理模块
+Training configuration management.
 
-提供训练超参数的配置管理
+Provides configuration of training hyperparameters.
 """
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -15,41 +15,41 @@ logger = get_logger(__name__)
 
 @dataclass
 class TrainingConfig:
-    """训练配置类"""
+    """Training configuration."""
 
-    # 模型配置
+    # Model configuration.
     model_name: str = "unet"
     n_channels: int = 3
     n_classes: int = 1
     bilinear: bool = True
 
-    # 训练配置
+    # Training configuration.
     epochs: int = 100
     batch_size: int = 8
     learning_rate: float = 1e-4
     weight_decay: float = 1e-5
 
-    # 数据配置
+    # Data configuration.
     image_size: tuple = (256, 256)
     train_split: float = 0.8
     val_split: float = 0.1
     test_split: float = 0.1
 
-    # 损失函数配置
+    # Loss function configuration.
     loss_type: str = "bce_dice"  # "dice", "bce_dice", "focal"
     bce_weight: float = 0.5
     dice_weight: float = 0.5
 
-    # 优化器配置
+    # Optimizer configuration.
     optimizer: str = "adam"  # "adam", "sgd", "adamw"
     momentum: float = 0.9
 
-    # 学习率调度器配置
+    # Learning-rate scheduler configuration.
     scheduler: str = "cosine"  # "cosine", "step", "plateau"
     scheduler_patience: int = 10
     scheduler_factor: float = 0.5
 
-    # 其他配置
+    # Additional configuration.
     num_workers: int = 4
     device: str = "cuda"
     seed: int = 42
@@ -57,7 +57,7 @@ class TrainingConfig:
     log_interval: int = 10
 
     def save(self, path: str):
-        """保存配置到YAML文件"""
+        """Save configuration to a YAML file."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -68,7 +68,7 @@ class TrainingConfig:
 
     @classmethod
     def load(cls, path: str) -> 'TrainingConfig':
-        """从YAML文件加载配置"""
+        """Load configuration from a YAML file."""
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
@@ -81,6 +81,6 @@ class TrainingConfig:
 
 
 def get_default_config() -> TrainingConfig:
-    """获取默认配置"""
+    """Get the default configuration."""
     return TrainingConfig()
 

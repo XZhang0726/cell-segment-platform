@@ -1,7 +1,7 @@
 """
-评估指标模块
+Evaluation metrics.
 
-提供用于细胞分割的各种评估指标
+Provides evaluation metrics for cell segmentation.
 """
 import torch
 import numpy as np
@@ -14,24 +14,24 @@ logger = get_logger(__name__)
 
 def dice_coefficient(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1.0) -> float:
     """
-    计算Dice系数
+    Compute the Dice coefficient.
 
     Args:
-        pred: 预测值 (N, C, H, W)
-        target: 目标值 (N, C, H, W)
-        smooth: 平滑因子
+        pred: Predicted values (N, C, H, W).
+        target: Target values (N, C, H, W).
+        smooth: Smoothing factor.
 
     Returns:
-        Dice系数
+        Dice coefficient.
     """
     pred = torch.sigmoid(pred)
     pred = (pred > 0.5).float()
 
-    # 展平张量
+    # Flatten the tensors.
     pred = pred.view(-1)
     target = target.view(-1)
 
-    # 计算Dice系数
+    # Compute the Dice coefficient.
     intersection = (pred * target).sum()
     dice = (2. * intersection + smooth) / (pred.sum() + target.sum() + smooth)
 
@@ -40,24 +40,24 @@ def dice_coefficient(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1
 
 def iou_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1.0) -> float:
     """
-    计算IoU (Intersection over Union)
+    Compute intersection over union (IoU).
 
     Args:
-        pred: 预测值 (N, C, H, W)
-        target: 目标值 (N, C, H, W)
-        smooth: 平滑因子
+        pred: Predicted values (N, C, H, W).
+        target: Target values (N, C, H, W).
+        smooth: Smoothing factor.
 
     Returns:
-        IoU分数
+        IoU score.
     """
     pred = torch.sigmoid(pred)
     pred = (pred > 0.5).float()
 
-    # 展平张量
+    # Flatten the tensors.
     pred = pred.view(-1)
     target = target.view(-1)
 
-    # 计算IoU
+    # Compute IoU.
     intersection = (pred * target).sum()
     union = pred.sum() + target.sum() - intersection
     iou = (intersection + smooth) / (union + smooth)
@@ -67,14 +67,14 @@ def iou_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1.0) -> 
 
 def pixel_accuracy(pred: torch.Tensor, target: torch.Tensor) -> float:
     """
-    计算像素准确率
+    Compute pixel accuracy.
 
     Args:
-        pred: 预测值 (N, C, H, W)
-        target: 目标值 (N, C, H, W)
+        pred: Predicted values (N, C, H, W).
+        target: Target values (N, C, H, W).
 
     Returns:
-        像素准确率
+        Pixel accuracy.
     """
     pred = torch.sigmoid(pred)
     pred = (pred > 0.5).float()
@@ -88,24 +88,24 @@ def pixel_accuracy(pred: torch.Tensor, target: torch.Tensor) -> float:
 
 def precision_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-6) -> float:
     """
-    计算精确率
+    Compute precision.
 
     Args:
-        pred: 预测值 (N, C, H, W)
-        target: 目标值 (N, C, H, W)
-        smooth: 平滑因子
+        pred: Predicted values (N, C, H, W).
+        target: Target values (N, C, H, W).
+        smooth: Smoothing factor.
 
     Returns:
-        精确率
+        Precision.
     """
     pred = torch.sigmoid(pred)
     pred = (pred > 0.5).float()
 
-    # 展平张量
+    # Flatten the tensors.
     pred = pred.view(-1)
     target = target.view(-1)
 
-    # 计算精确率
+    # Compute precision.
     true_positive = (pred * target).sum()
     predicted_positive = pred.sum()
     precision = (true_positive + smooth) / (predicted_positive + smooth)
@@ -115,24 +115,24 @@ def precision_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e
 
 def recall_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-6) -> float:
     """
-    计算召回率
+    Compute recall.
 
     Args:
-        pred: 预测值 (N, C, H, W)
-        target: 目标值 (N, C, H, W)
-        smooth: 平滑因子
+        pred: Predicted values (N, C, H, W).
+        target: Target values (N, C, H, W).
+        smooth: Smoothing factor.
 
     Returns:
-        召回率
+        Recall.
     """
     pred = torch.sigmoid(pred)
     pred = (pred > 0.5).float()
 
-    # 展平张量
+    # Flatten the tensors.
     pred = pred.view(-1)
     target = target.view(-1)
 
-    # 计算召回率
+    # Compute recall.
     true_positive = (pred * target).sum()
     actual_positive = target.sum()
     recall = (true_positive + smooth) / (actual_positive + smooth)
@@ -142,14 +142,14 @@ def recall_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-6)
 
 def calculate_metrics(pred: torch.Tensor, target: torch.Tensor) -> Dict[str, float]:
     """
-    计算所有评估指标
+    Compute all evaluation metrics.
 
     Args:
-        pred: 预测值 (N, C, H, W)
-        target: 目标值 (N, C, H, W)
+        pred: Predicted values (N, C, H, W).
+        target: Target values (N, C, H, W).
 
     Returns:
-        包含所有指标的字典
+        Dictionary containing all metrics.
     """
     metrics = {
         'dice': dice_coefficient(pred, target),

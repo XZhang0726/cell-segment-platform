@@ -1,7 +1,7 @@
 """
-细胞分割数据集加载器
+Cell segmentation dataset loader.
 
-提供PyTorch Dataset类用于加载图像和掩码
+Provides a PyTorch Dataset for loading paired images and masks.
 """
 import torch
 from torch.utils.data import Dataset
@@ -17,13 +17,13 @@ logger = get_logger(__name__)
 
 class CellSegmentationDataset(Dataset):
     """
-    细胞分割数据集
+    Cell segmentation dataset.
 
     Args:
-        image_dir: 图像目录路径
-        mask_dir: 掩码目录路径
-        transform: 数据增强变换
-        image_size: 目标图像尺寸 (height, width)
+        image_dir: Path to the image directory.
+        mask_dir: Path to the mask directory.
+        transform: Data augmentation transform.
+        image_size: Target image dimensions (height, width).
     """
 
     def __init__(
@@ -38,13 +38,13 @@ class CellSegmentationDataset(Dataset):
         self.transform = transform
         self.image_size = image_size
 
-        # 获取所有图像文件
+        # List all image files.
         self.image_files = self._get_image_files()
 
         logger.info(f"Loaded dataset: {len(self.image_files)} images from {image_dir}")
 
     def _get_image_files(self) -> List[Path]:
-        """获取所有图像文件"""
+        """List all image files."""
         image_extensions = ['.png', '.jpg', '.jpeg', '.tif', '.tiff']
         image_files = []
 
@@ -55,27 +55,27 @@ class CellSegmentationDataset(Dataset):
         return sorted(image_files)
 
     def __len__(self) -> int:
-        """返回数据集大小"""
+        """Return the dataset size."""
         return len(self.image_files)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        获取单个样本
+        Get a single sample.
 
         Args:
-            idx: 样本索引
+            idx: Sample index.
 
         Returns:
-            (image, mask) 元组
+            (image, mask) tuple.
         """
-        # 加载图像
+        # Load an image.
         image_path = self.image_files[idx]
         image = ImageIO.load_image(image_path)
 
-        # 加载对应的掩码
+        # Load the corresponding mask.
         mask_path = self.mask_dir / image_path.name
         if not mask_path.exists():
-            # 尝试其他可能的掩码文件名
+            # Try alternative mask filenames.
             mask_path = self.mask_dir / (image_path.stem + '_mask' + image_path.suffix)
 
         if not mask_path.exists():
@@ -83,19 +83,19 @@ class CellSegmentationDataset(Dataset):
 
         mask = ImageIO.load_image(mask_path, grayscale=True)
 
-        # 调整图像大小
+        # Resize the image.
         if self.image_size is not None:
             import cv2
             image = cv2.resize(image, (self.image_size[1], self.image_size[0]))
             mask = cv2.resize(mask, (self.image_size[1], self.image_size[0]))
 
-        # 应用数据增强
+        # Apply data augmentation.
         if self.transform is not None:
             transformed = self.transform(image=image, mask=mask)
             image = transformed['image']
             mask = transformed['mask']
 
-        # 转换为张量
+        # Convert to tensors.
         image = self._to_tensor(image)
         mask = self._to_tensor(mask)
 
@@ -103,24 +103,24 @@ class CellSegmentationDataset(Dataset):
 
     def _to_tensor(self, image: np.ndarray) -> torch.Tensor:
         """
-        将numpy数组转换为PyTorch张量
+        Convert a NumPy array to a PyTorch tensor.
 
         Args:
-            image: numpy数组 (H, W) 或 (H, W, C)
+            image: NumPy array (H, W) or (H, W, C).
 
         Returns:
-            PyTorch张量 (C, H, W) 或 (1, H, W)
+            PyTorch tensor (C, H, W) or (1, H, W).
         """
-        # 归一化到[0, 1]
+        # Normalize to [0, 1].
         if image.dtype == np.uint8:
             image = image.astype(np.float32) / 255.0
 
-        # 转换维度顺序
+        # Reorder dimensions.
         if image.ndim == 2:
-            # 灰度图 (H, W) -> (1, H, W)
+            # Grayscale: (H, W) -> (1, H, W).
             image = np.expand_dims(image, axis=0)
         elif image.ndim == 3:
-            # 彩色图 (H, W, C) -> (C, H, W)
+            # Color: (H, W, C) -> (C, H, W).
             image = np.transpose(image, (2, 0, 1))
 
         return torch.from_numpy(image.copy()).float()

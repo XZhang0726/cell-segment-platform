@@ -1,7 +1,7 @@
 """
-机器学习模块
+Machine learning utilities for cell feature analysis.
 
-提供无监督学习功能，包括聚类分析、降维可视化和特征分析
+Includes clustering, dimensionality reduction, and feature analysis.
 """
 from .clustering import (
     perform_kmeans,
@@ -26,7 +26,7 @@ from .feature_analysis import (
 )
 
 __all__ = [
-    # 聚类分析
+    # Clustering analysis
     'perform_kmeans',
     'perform_dbscan',
     'perform_hierarchical',
@@ -35,12 +35,12 @@ __all__ = [
     'find_optimal_clusters',
     'preprocess_features',
 
-    # 降维可视化
+    # Dimensionality reduction
     'apply_pca',
     'apply_tsne',
     'apply_umap',
 
-    # 特征分析
+    # Feature analysis
     'analyze_feature_importance',
     'compute_feature_correlation',
     'select_top_features'

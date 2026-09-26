@@ -1,7 +1,7 @@
 """
-阈值分割算法模块
+Threshold-based segmentation algorithms.
 
-提供各种阈值分割方法
+Provides several thresholding methods.
 """
 import cv2
 import numpy as np
@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 
 class ThresholdSegmentation:
-    """阈值分割类"""
+    """Threshold-based segmentation methods."""
 
     @staticmethod
     def otsu_threshold(
@@ -21,19 +21,19 @@ class ThresholdSegmentation:
         return_threshold: bool = False
     ) -> np.ndarray:
         """
-        Otsu自动阈值分割
+        Segment using an automatically determined Otsu threshold.
 
         Args:
-            image: 输入图像（灰度图）
-            return_threshold: 是否返回阈值
+            image: Input grayscale image.
+            return_threshold: Return the threshold as well as the image.
 
         Returns:
-            二值化图像，如果return_threshold=True则返回(二值图, 阈值)
+            Binary image, or (binary image, threshold) when return_threshold=True.
         """
         if image.ndim != 2:
             raise ValueError("Otsu threshold requires grayscale image")
 
-        # 使用Otsu方法自动计算阈值
+        # Determine the threshold automatically using Otsu's method.
         threshold_value, binary = cv2.threshold(
             image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
         )
@@ -52,16 +52,16 @@ class ThresholdSegmentation:
         threshold_type: str = 'binary'
     ) -> np.ndarray:
         """
-        固定阈值分割
+        Segment using a fixed threshold.
 
         Args:
-            image: 输入图像（灰度图）
-            threshold: 阈值
-            max_value: 最大值
-            threshold_type: 阈值类型 ('binary', 'binary_inv', 'trunc', 'tozero', 'tozero_inv')
+            image: Input grayscale image.
+            threshold: Threshold value.
+            max_value: Maximum output value.
+            threshold_type: Threshold type ('binary', 'binary_inv', 'trunc', 'tozero', 'tozero_inv').
 
         Returns:
-            二值化图像
+            Thresholded image.
         """
         if image.ndim != 2:
             raise ValueError("Fixed threshold requires grayscale image")
@@ -94,18 +94,18 @@ class ThresholdSegmentation:
         C: int = 2
     ) -> np.ndarray:
         """
-        自适应阈值分割
+        Segment using adaptive thresholding.
 
         Args:
-            image: 输入图像（灰度图）
-            max_value: 最大值
-            method: 自适应方法 ('mean', 'gaussian')
-            threshold_type: 阈值类型 ('binary', 'binary_inv')
-            block_size: 邻域大小（必须是奇数）
-            C: 常数，从计算的平均值或加权平均值中减去
+            image: Input grayscale image.
+            max_value: Maximum output value.
+            method: Adaptive thresholding method ('mean', 'gaussian').
+            threshold_type: Threshold type ('binary', 'binary_inv').
+            block_size: Neighborhood size; must be odd.
+            C: Constant subtracted from the local mean or weighted mean.
 
         Returns:
-            二值化图像
+            Thresholded image.
         """
         if image.ndim != 2:
             raise ValueError("Adaptive threshold requires grayscale image")
@@ -148,41 +148,41 @@ class ThresholdSegmentation:
         n_classes: int = 3
     ) -> np.ndarray:
         """
-        多阈值Otsu分割
+        Segment using multiple Otsu thresholds.
 
         Args:
-            image: 输入图像（灰度图）
-            n_classes: 分类数量
+            image: Input grayscale image.
+            n_classes: Number of classes.
 
         Returns:
-            分割后的图像
+            Segmented image.
         """
         if image.ndim != 2:
             raise ValueError("Multi-Otsu requires grayscale image")
 
         from skimage.filters import threshold_multiotsu
 
-        # 计算多个阈值
+        # Compute multiple thresholds.
         thresholds = threshold_multiotsu(image, classes=n_classes)
 
-        # 根据阈值分割图像
+        # Segment the image using the thresholds.
         segmented = np.digitize(image, bins=thresholds)
 
         logger.debug(f"Multi-Otsu thresholds: {thresholds}")
         return segmented.astype(np.uint8)
 
 
-# 便捷函数
+# Convenience functions.
 def otsu_threshold(image: np.ndarray) -> np.ndarray:
-    """Otsu阈值分割的便捷函数"""
+    """Convenience wrapper for Otsu thresholding."""
     return ThresholdSegmentation.otsu_threshold(image)
 
 
 def adaptive_threshold(image: np.ndarray, block_size: int = 11) -> np.ndarray:
-    """自适应阈值分割的便捷函数"""
+    """Convenience wrapper for adaptive thresholding."""
     return ThresholdSegmentation.adaptive_threshold(image, block_size=block_size)
 
 
 def fixed_threshold(image: np.ndarray, threshold: int = 127) -> np.ndarray:
-    """固定阈值分割的便捷函数"""
+    """Convenience wrapper for fixed thresholding."""
     return ThresholdSegmentation.fixed_threshold(image, threshold=threshold)

@@ -1,7 +1,7 @@
 """
-损失函数模块
+Loss functions.
 
-提供用于细胞分割的各种损失函数
+Provides loss functions for cell segmentation.
 """
 import torch
 import torch.nn as nn
@@ -14,9 +14,9 @@ logger = get_logger(__name__)
 
 class DiceLoss(nn.Module):
     """
-    Dice损失函数
+    Dice loss.
 
-    适用于分割任务，特别是处理类别不平衡问题
+    Suitable for segmentation tasks, including those with class imbalance.
     """
 
     def __init__(self, smooth: float = 1.0):
@@ -25,22 +25,22 @@ class DiceLoss(nn.Module):
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
-        计算Dice损失
+        Compute Dice loss.
 
         Args:
-            pred: 预测值 (N, C, H, W)
-            target: 目标值 (N, C, H, W)
+            pred: Predicted values (N, C, H, W).
+            target: Target values (N, C, H, W).
 
         Returns:
-            Dice损失值
+            Dice loss value.
         """
         pred = torch.sigmoid(pred)
 
-        # 展平张量
+        # Flatten the tensors.
         pred = pred.view(-1)
         target = target.view(-1)
 
-        # 计算Dice系数
+        # Compute the Dice coefficient.
         intersection = (pred * target).sum()
         dice = (2. * intersection + self.smooth) / (pred.sum() + target.sum() + self.smooth)
 
@@ -49,9 +49,9 @@ class DiceLoss(nn.Module):
 
 class BCEDiceLoss(nn.Module):
     """
-    BCE + Dice组合损失函数
+    Combined binary cross-entropy and Dice loss.
 
-    结合二元交叉熵和Dice损失的优点
+    Combine binary cross-entropy with Dice loss.
     """
 
     def __init__(self, bce_weight: float = 0.5, dice_weight: float = 0.5):
@@ -63,14 +63,14 @@ class BCEDiceLoss(nn.Module):
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
-        计算组合损失
+        Compute the combined loss.
 
         Args:
-            pred: 预测值 (N, C, H, W)
-            target: 目标值 (N, C, H, W)
+            pred: Predicted values (N, C, H, W).
+            target: Target values (N, C, H, W).
 
         Returns:
-            组合损失值
+            Combined loss value.
         """
         bce_loss = self.bce(pred, target)
         dice_loss = self.dice(pred, target)
@@ -80,9 +80,9 @@ class BCEDiceLoss(nn.Module):
 
 class FocalLoss(nn.Module):
     """
-    Focal损失函数
+    Focal loss.
 
-    用于处理类别不平衡问题，关注难分类样本
+    Address class imbalance by emphasizing difficult examples.
     """
 
     def __init__(self, alpha: float = 0.25, gamma: float = 2.0):
@@ -92,14 +92,14 @@ class FocalLoss(nn.Module):
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
-        计算Focal损失
+        Compute focal loss.
 
         Args:
-            pred: 预测值 (N, C, H, W)
-            target: 目标值 (N, C, H, W)
+            pred: Predicted values (N, C, H, W).
+            target: Target values (N, C, H, W).
 
         Returns:
-            Focal损失值
+            Focal loss value.
         """
         bce_loss = F.binary_cross_entropy_with_logits(pred, target, reduction='none')
         pt = torch.exp(-bce_loss)

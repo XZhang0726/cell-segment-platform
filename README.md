@@ -1,130 +1,150 @@
-# 细胞分割平台 (XiBaoFenGe)
+# Cell Segmentation Platform
 
-一个全面的、自动化的细胞分割平台，基于深度学习和传统图像处理技术。
+**An interactive research toolkit for microscopy image segmentation, cell morphology, and machine learning.**
 
-## 项目简介
+![Python](https://img.shields.io/badge/Python-3.12%20recommended-3776AB?logo=python&logoColor=white)
+![Interface](https://img.shields.io/badge/Interface-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+![Framework](https://img.shields.io/badge/Framework-PyTorch-EE4C2C?logo=pytorch&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Research%20prototype-orange)
 
-本项目旨在为生物医学研究提供高效、准确的细胞图像分割解决方案，支持多种细胞类型和成像方式。
+Compare classical image processing and deep learning methods in one workspace. Inspect segmentation masks, combine predictions, extract per-cell features, and export images and tables for downstream analysis.
 
-### 核心特性
+[Quick start](#quick-start) · [Capabilities](#capabilities) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md) · [Report an issue](https://github.com/XZhang0726/cell-segment-platform/issues)
 
-- 🎯 **多种分割算法**：支持传统方法和深度学习模型（U-Net、Mask R-CNN等）
-- 🚀 **高性能处理**：GPU加速，支持批量处理
-- 🖥️ **多种交互方式**：CLI、GUI和API接口
-- 📊 **完整分析流程**：从图像预处理到结果统计分析
-- 🔧 **易于扩展**：模块化设计，方便添加新算法
+## Workflow
 
-## 快速开始
-
-### 环境要求
-
-- Python 3.8+
-- CUDA 11.0+（可选，用于GPU加速）
-
-### 安装
-
-1. 克隆仓库
-```bash
-git clone https://github.com/yourusername/xibaofenge.git
-cd xibaofenge
+```mermaid
+flowchart LR
+    A[Microscopy images] --> B[Preprocessing]
+    B --> C[Segmentation and comparison]
+    C --> D[Optional evidence fusion]
+    C --> E[Cell masks and morphology]
+    D --> E
+    E --> F[Feature analysis and machine learning]
+    E --> G[Image and table exports]
+    F --> G
 ```
 
-2. 创建虚拟环境
-```bash
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-```
+## Capabilities
 
-3. 安装依赖
-```bash
-pip install -r requirements.txt
-```
+| Area | Available functionality |
+| --- | --- |
+| Segmentation | Otsu and adaptive thresholding, watershed, Canny edges, Cellpose, a CellViT subprocess integration, a SAM-based wrapper, and a U-Net prediction API |
+| Comparison and fusion | Side-by-side comparison, instance matching, Dempster–Shafer evidence fusion, and geometric refinement |
+| Batch processing | Multiple-image processing, configurable parallel workers, and ZIP export |
+| Cell morphology | Per-cell crops, area and shape measurements, texture features, and CSV export |
+| Exploratory analysis | Clustering, PCA/t-SNE/UMAP, feature analysis, and anomaly detection |
+| Predictive workflows | Classification and regression, model comparison, active learning utilities, and candidate screening from feature tables |
 
-4. 开发模式安装
-```bash
-pip install -e .
-```
+The main application is `app_enhanced.py`. The Gradio interface (`app.py`) and minimal Streamlit interface (`app_streamlit.py`) are retained as alternative entry points. This repository is under active development; experimental workflows and third-party model integrations require validation on your own data.
 
-## 基本使用
+## Quick start
 
-### 命令行界面（开发中）
+Use **Python 3.12** in a dedicated environment; the package requires Python 3.10 or newer. Classical segmentation runs on CPU. CUDA requires a compatible NVIDIA GPU; macOS users should start with CPU execution.
 
 ```bash
-# 单张图像分割
-xibaofenge segment --input image.png --output result.png
-
-# 批量处理
-xibaofenge batch --input-dir ./images --output-dir ./results
-
-# 模型训练
-xibaofenge train --config configs/unet.yaml
+git clone https://github.com/XZhang0726/cell-segment-platform.git
+cd cell-segment-platform
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m streamlit run app_enhanced.py
 ```
 
-### Python API（开发中）
+On Windows PowerShell, activate the environment with `.\.venv\Scripts\Activate.ps1` instead. You can also use `start-app.bat`, which selects the repository-local `.venv` when present and otherwise uses `python` from your current PATH. Open the local URL printed by Streamlit, usually `http://localhost:8501`.
+
+For CUDA, install the appropriate PyTorch distribution before the remaining dependencies. See the [installation guide](installation.md) for platform-specific setup. `environment.yml`, `requirements_complete.txt`, and `requirements_cellpose_gpu.txt` are historical Windows/CUDA snapshots, not portable installation specifications.
+
+For the optional Gradio interface, install `gradio` and run `python app.py`.
+
+### First analysis
+
+1. Open **Image Segmentation** and upload a microscopy image.
+2. Start with **Otsu** or **Watershed** to check the workflow without downloading weights.
+3. Review the mask and overlay; adjust preprocessing and segmentation settings.
+4. Use **Comparison Mode** to compare methods, or **Cell Morphology Extraction** to inspect individual cells and measurements.
+5. Export the results. Machine learning tabs use feature tables and require suitable labels or saved models for their respective workflows.
+
+## Model setup
+
+| Method | Additional requirements | Notes |
+| --- | --- | --- |
+| Classical methods | Main environment only | Thresholding and edge methods produce binary outputs; watershed produces labeled regions. |
+| Cellpose | `cellpose` and compatible PyTorch | First use may download weights. Model names and behavior depend on the Cellpose version. |
+| CellViT | Project-local `env_cellvit`, upstream implementation, and compatible checkpoint | Inference runs in a separate Python process. See the [CellViT guide](cellvit-guide.md). |
+| SAM-based segmentation | `segment-anything` and a checkpoint under `models/sam/` | The legacy interface label **CellSAM** denotes a Meta SAM automatic-mask wrapper, not a separate cell-trained CellSAM model. See the [SAM guide](sam-guide.md). |
+| U-Net | Trained checkpoint for meaningful predictions | Python training and inference components are provided; pretrained weights are not bundled. |
+
+Datasets and model weights are not included. Fusion confidence maps may be generated heuristically from masks and should not be interpreted as calibrated probabilities. See the [technical overview](platform-overview.md) for assumptions and limitations.
+
+## Python API
+
+Run this example from the repository root after installing the dependencies:
 
 ```python
-from xibaofenge import CellSegmenter
+import cv2
+from src.api.segmentation import CellSegmenter
 
-# 初始化分割器
-segmenter = CellSegmenter(model='unet')
+image = cv2.imread("cell_image.png", cv2.IMREAD_GRAYSCALE)
+if image is None:
+    raise FileNotFoundError("cell_image.png")
 
-# 加载图像
-image = segmenter.load_image('cell_image.png')
-
-# 执行分割
-result = segmenter.segment(image)
-
-# 保存结果
-segmenter.save_result(result, 'output.png')
+segmenter = CellSegmenter(method="otsu", device="cpu")
+mask = segmenter.segment(image)
+if not cv2.imwrite("cell_mask.png", mask):
+    raise OSError("Could not save cell_mask.png")
 ```
 
-## 项目结构
+Supported method names are `otsu`, `adaptive`, `watershed`, `edge_canny`, `cellpose`, `cellvit`, `cellsam`, and `deep_learning`. Outputs vary by method: binary foreground masks, edge maps, or integer instance labels. Preserve instance labels when exporting instance segmentation results.
 
+## Documentation
+
+| Guide | Contents |
+| --- | --- |
+| [Documentation index](docs/index.md) | Navigation and document status |
+| [Installation](installation.md) | Environments, CPU/GPU setup, troubleshooting |
+| [Technical overview](platform-overview.md) | Workflows, features, fusion, methodological limitations |
+| [CellViT setup](cellvit-guide.md) / [validation](cellvit-testing.md) | Environment, checkpoints, and checks |
+| [SAM setup](sam-guide.md) / [validation](sam-testing.md) | Dependencies, checkpoint variants, mask inspection |
+| [Architecture](docs/architecture.md) | Module boundaries and execution flow |
+| [Roadmap](docs/roadmap.md) | Proposed development phases, priorities, and milestones |
+
+## Repository layout
+
+```text
+cell-segment-platform/
+├── app_enhanced.py          # Main Streamlit application
+├── app.py                  # Gradio interface
+├── app_streamlit.py        # Minimal Streamlit interface
+├── locales/                # English interface text
+├── src/
+│   ├── api/                # Unified segmentation interface
+│   ├── core/               # Models, segmentation, features, fusion
+│   ├── data/               # Image I/O, datasets, augmentation
+│   ├── training/           # Training loops, losses, metrics, configuration
+│   ├── inference/          # U-Net prediction utilities
+│   └── ml/                 # Feature-table analysis and learning
+├── tests/                  # Automated tests
+├── scripts/                # Data preparation utilities
+├── docs/                   # Architecture and development documentation
+├── data/                   # Local data; contents ignored by Git
+└── models/                 # Local checkpoints; weights ignored by Git
 ```
-xibaofenge/
-├── src/                    # 源代码
-│   ├── core/              # 核心算法
-│   ├── data/              # 数据管理
-│   ├── training/          # 模型训练
-│   ├── inference/         # 推理服务
-│   └── ui/                # 用户界面
-├── data/                   # 数据目录
-├── models/                 # 模型文件
-├── configs/                # 配置文件
-├── tests/                  # 测试代码
-├── docs/                   # 文档
-└── notebooks/              # Jupyter notebooks
+
+## Development
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest
 ```
 
-## 开发状态
+Root-level `test_*.py` files include demonstrations and hardware-specific diagnostics; some need local images, model weights, or a GPU. They are separate from the default `tests/` suite. See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidance and the [validation record](docs/validation.md) for the checked environment and known test failures.
 
-当前版本：**v0.1.0-alpha**
+When [reporting a problem](https://github.com/XZhang0726/cell-segment-platform/issues), include a minimal example, dependency versions, and the complete error message. Use public or synthetic data in public issues.
 
-- [x] 项目框架搭建
-- [ ] 图像预处理模块
-- [ ] 传统分割算法
-- [ ] 深度学习模型集成
-- [ ] CLI工具
-- [ ] GUI界面
+## Attribution and licensing
 
-详细开发计划请查看 [docs/00_计划导航.md](docs/00_计划导航.md)
+This project builds on PyTorch, Streamlit, OpenCV, scikit-image, scikit-learn, Cellpose, CellViT, and Segment Anything. Third-party software and checkpoints retain their respective licenses and citation requirements.
 
-## 文档
-
-- [项目概述](docs/01_项目概述.md)
-- [技术栈与架构](docs/02_技术栈与架构.md)
-- [开发路线图](docs/03_开发路线图.md)
-- [实施计划](docs/04_实施计划.md)
-
-## 贡献
-
-欢迎贡献！请查看 [CONTRIBUTING.md](CONTRIBUTING.md)（待创建）了解详情。
-
-## 许可证
-
-MIT License（待确认）
-
-## 联系方式
-
-- 项目主页：https://github.com/yourusername/xibaofenge
-- 问题反馈：https://github.com/yourusername/xibaofenge/issues
+A project license has not yet been supplied. Contact the maintainer before relying on a particular reuse license.

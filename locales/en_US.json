@@ -1,12 +1,12 @@
 {
   "app": {
-    "title": "AI Cell Platform",
-    "title_enhanced": "🔬 AI Cell Platform - Enhanced",
-    "subtitle": "Cell Image Analysis and Exploration with Deep Learning",
-    "subtitle_enhanced": "Supports batch processing, multi-method comparison, preprocessing options and result export",
+    "title": "Cell Segmentation Platform",
+    "title_enhanced": "🔬 Cell Segmentation Platform",
+    "subtitle": "Microscopy Image Segmentation and Cell Feature Analysis",
+    "subtitle_enhanced": "Segment microscopy images, compare methods, extract cell features, and export results.",
     "page_icon": "🔬",
     "help_title": "📖 User Guide",
-    "help_intro": "Welcome to AI Cell Platform - A continuously evolving platform for cell image analysis"
+    "help_intro": "A research toolkit for microscopy image segmentation and cell feature analysis."
   },
   "tabs": {
     "image_segmentation": "📤 Image Segmentation",
@@ -102,7 +102,8 @@
     "export_comparison_results": "💾 Export Comparison Results",
     "select_methods_to_compare": "Select methods to compare (at least 2):",
     "method_column": "Method",
-    "successfully_extracted_cells": "✅ Successfully extracted {count} cell samples"
+    "successfully_extracted_cells": "✅ Successfully extracted {count} cell samples",
+    "usage": "Usage"
   },
   "comparison": {
     "description": "Use multiple methods simultaneously for segmentation comparison, quickly evaluate the effectiveness of different algorithms"
@@ -266,7 +267,15 @@
     "high_threshold": "High Threshold",
     "sam_model_type_help": "vit_b: Base model (91M params), vit_l: Large model (308M), vit_h: Huge model (636M)",
     "cellvit_gpu_help": "CellViT recommends using GPU",
-    "cellsam_gpu_help": "CellSAM recommends using GPU"
+    "cellsam_gpu_help": "CellSAM recommends using GPU",
+    "advanced_shape_features": "Advanced Shape Features",
+    "advanced_shape_features_help": "Extract additional descriptors of cell shape and geometry.",
+    "extract_individual_cells": "Extract Individual Cells",
+    "extract_morphology_features": "Extract Morphology Features",
+    "model_size": "Select the model input size.",
+    "postprocessing_options": "Postprocessing Options",
+    "texture_features": "Texture Features",
+    "texture_features_help": "Extract texture descriptors from image intensities within each cell."
   },
   "methods": {
     "otsu": "Otsu Threshold",
@@ -379,7 +388,9 @@
     "parallel_processing_dl": "🧠 Using {workers} processes to process {count} images in parallel (deep learning model)...",
     "cellpose_recommended_gpu": "Cellpose recommends using GPU (requires 4GB+ VRAM)",
     "cellvit_recommended_gpu": "CellViT recommends using GPU (requires 8GB+ VRAM)",
-    "cellsam_recommended_gpu": "CellSAM recommends using GPU (requires 4GB+ VRAM)"
+    "cellsam_recommended_gpu": "CellSAM recommends using GPU (requires 4GB+ VRAM)",
+    "successfully_extracted_cells": "✅ Successfully extracted {count} cell samples",
+    "uploaded_files_count": "📁 {count} images uploaded"
   },
   "metrics": {
     "foreground_pixels": "Foreground Pixels",
@@ -464,7 +475,7 @@
     "algorithm_visualization_failed": "❌ Algorithm visualization failed: {error}",
     "anomaly_sample_visualization": "**Anomaly Sample Visualization**",
     "dimensionality_reduction_method": "Dimensionality Reduction Method",
-    "dimensionality_reduction_help": "Use dimensionality reduction to project high-dimensional features to 2D space",
+    "dimensionality_reduction_help": "PCA: Fast linear reduction; t-SNE: Preserves local structure; UMAP: Preserves global and local structure",
     "perplexity": "Perplexity",
     "min_distance": "Minimum Distance",
     "generate_anomaly_visualization": "🎨 Generate Anomaly Visualization",
@@ -527,21 +538,13 @@
     "noise_points": "- Noise points: **{n_noise}**",
     "cluster_cell_count": "- Cluster {cluster_id}: **{count}** cells",
     "clustering_visualization": "**Clustering Visualization**",
-    "dimensionality_reduction_method": "Dimensionality Reduction Method",
-    "dimensionality_reduction_help": "PCA: Fast linear reduction; t-SNE: Preserves local structure; UMAP: Preserves global and local structure",
-    "perplexity": "Perplexity",
     "n_iterations": "Number of Iterations",
-    "n_neighbors": "Number of Neighbors",
-    "min_distance": "Minimum Distance",
     "generate_visualization": "🎨 Generate Visualization",
-    "executing_dimensionality_reduction": "Executing {method} dimensionality reduction...",
     "clustering_visualization_title": "Cell Clustering Visualization ({method})",
     "cluster_label": "Cluster",
     "clustering_viz_completed": "✅ {method} visualization completed!",
     "clustering_viz_failed": "❌ Visualization failed: {error}",
-    "download_visualization": "**Download Visualization**",
     "download_html": "📥 Download HTML",
-    "download_png": "📥 Download PNG",
     "png_export_requires_kaleido": "⚠️ PNG export requires kaleido package",
     "please_execute_clustering_first": "👈 Please execute clustering analysis on the left first",
     "please_upload_csv_clustering": "👆 Please upload cell feature CSV file to start analysis",
@@ -551,7 +554,6 @@
     "upload_feature_data_csv": "Upload Feature Data CSV",
     "upload_feature_data_help": "Upload CSV file containing features and target variable",
     "data_loaded_success": "✅ Data loaded successfully: {rows} rows × {cols} columns",
-    "data_preview": "📊 Data Preview",
     "target_variable_settings": "**🎯 Target Variable Settings**",
     "select_target_column": "Select Target Column",
     "select_target_column_help": "Select the target variable column to predict",
@@ -603,7 +605,6 @@
     "random_sampling": "Random Sampling (Baseline)",
     "base_model": "Base Model",
     "iteration_settings_section": "**⚙️ Iteration Settings**",
-    "n_iterations": "Number of Iterations",
     "samples_per_iteration": "Samples per Iteration",
     "start_active_learning": "🚀 Start Active Learning",
     "executing_active_learning": "Executing active learning...",
@@ -649,7 +650,8 @@
     "view_detailed_results": "📋 View Detailed Results",
     "download_all_results": "📥 Download All Results",
     "download_top_candidates": "🏆 Download Top Candidates",
-    "please_load_model_and_upload": "👈 Please load model and upload data for screening first"
+    "please_load_model_and_upload": "👈 Please load model and upload data for screening first",
+    "hierarchical_clustering": "Hierarchical Clustering"
   },
   "morphology": {
     "header": "🔬 Cell Morphology Feature Extraction",

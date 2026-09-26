@@ -1,7 +1,7 @@
 """
-路径处理工具模块
+Project path utilities.
 
-提供项目中常用的路径操作功能
+Provides common path operations used throughout the project.
 """
 from pathlib import Path
 from typing import Union, List
@@ -9,29 +9,29 @@ from typing import Union, List
 
 def get_project_root() -> Path:
     """
-    获取项目根目录
+    Get the project root directory.
 
     Returns:
-        项目根目录路径
+        Path to the project root directory.
     """
-    # 从当前文件向上查找，直到找到包含setup.py的目录
+    # Search parent directories for one containing setup.py.
     current = Path(__file__).resolve()
     for parent in current.parents:
         if (parent / "setup.py").exists():
             return parent
-    # 如果没找到，返回当前文件的上上上级目录
+    # Fall back to the fourth parent directory of this module.
     return Path(__file__).resolve().parents[3]
 
 
 def ensure_dir(path: Union[str, Path]) -> Path:
     """
-    确保目录存在，如果不存在则创建
+    Ensure the directory exists, creating it if necessary.
 
     Args:
-        path: 目录路径
+        path: Directory path.
 
     Returns:
-        Path对象
+        Path object.
     """
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
@@ -39,22 +39,22 @@ def ensure_dir(path: Union[str, Path]) -> Path:
 
 
 def get_data_dir() -> Path:
-    """获取数据目录"""
+    """Get the data directory."""
     return get_project_root() / "data"
 
 
 def get_models_dir() -> Path:
-    """获取模型目录"""
+    """Get the models directory."""
     return get_project_root() / "models"
 
 
 def get_configs_dir() -> Path:
-    """获取配置目录"""
+    """Get the configuration directory."""
     return get_project_root() / "configs"
 
 
 def get_results_dir() -> Path:
-    """获取结果目录"""
+    """Get the results directory."""
     return get_data_dir() / "results"
 
 
@@ -64,15 +64,15 @@ def list_files(
     recursive: bool = False
 ) -> List[Path]:
     """
-    列出目录中的文件
+    List files in a directory.
 
     Args:
-        directory: 目录路径
-        extensions: 文件扩展名列表，如['.png', '.jpg']
-        recursive: 是否递归搜索子目录
+        directory: Directory path.
+        extensions: List of filename extensions, e.g. ['.png', '.jpg'].
+        recursive: Search subdirectories recursively.
 
     Returns:
-        文件路径列表
+        List of file paths.
     """
     directory = Path(directory)
     if not directory.exists():
@@ -94,14 +94,14 @@ def list_files(
 
 def get_relative_path(path: Union[str, Path], base: Union[str, Path] = None) -> Path:
     """
-    获取相对路径
+    Get a relative path.
 
     Args:
-        path: 目标路径
-        base: 基准路径，默认为项目根目录
+        path: Target path.
+        base: Base path; defaults to the project root.
 
     Returns:
-        相对路径
+        Relative path.
     """
     path = Path(path).resolve()
     if base is None:
@@ -112,5 +112,5 @@ def get_relative_path(path: Union[str, Path], base: Union[str, Path] = None) -> 
     try:
         return path.relative_to(base)
     except ValueError:
-        # 如果路径不在base下，返回绝对路径
+        # Return an absolute path if the target is not under base.
         return path

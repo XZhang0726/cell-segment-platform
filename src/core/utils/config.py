@@ -1,7 +1,7 @@
 """
-配置管理模块
+Configuration management.
 
-提供配置文件的加载和管理功能
+Provides configuration file loading and management.
 """
 import yaml
 from pathlib import Path
@@ -10,27 +10,27 @@ from .paths import get_configs_dir
 
 
 class Config:
-    """配置管理类"""
+    """Configuration container."""
 
     def __init__(self, config_dict: Dict[str, Any] = None):
         """
-        初始化配置
+        Initialize the configuration.
 
         Args:
-            config_dict: 配置字典
+            config_dict: Configuration dictionary.
         """
         self._config = config_dict or {}
 
     def get(self, key: str, default: Any = None) -> Any:
         """
-        获取配置值
+        Get a configuration value.
 
         Args:
-            key: 配置键，支持点号分隔的嵌套键，如'model.name'
-            default: 默认值
+            key: Configuration key; dotted keys such as 'model.name' access nested values.
+            default: Default value.
 
         Returns:
-            配置值
+            Configuration value.
         """
         keys = key.split('.')
         value = self._config
@@ -47,11 +47,11 @@ class Config:
 
     def set(self, key: str, value: Any):
         """
-        设置配置值
+        Set a configuration value.
 
         Args:
-            key: 配置键
-            value: 配置值
+            key: Configuration key.
+            value: Configuration value.
         """
         keys = key.split('.')
         config = self._config
@@ -64,19 +64,19 @@ class Config:
         config[keys[-1]] = value
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """Convert to a dictionary."""
         return self._config.copy()
 
     @classmethod
     def from_yaml(cls, yaml_file: Path) -> 'Config':
         """
-        从YAML文件加载配置
+        Load configuration from a YAML file.
 
         Args:
-            yaml_file: YAML文件路径
+            yaml_file: Path to the YAML file.
 
         Returns:
-            Config实例
+            Config instance.
         """
         yaml_file = Path(yaml_file)
         if not yaml_file.exists():
@@ -89,10 +89,10 @@ class Config:
 
     def save_yaml(self, yaml_file: Path):
         """
-        保存配置到YAML文件
+        Save configuration to a YAML file.
 
         Args:
-            yaml_file: YAML文件路径
+            yaml_file: Path to the YAML file.
         """
         yaml_file = Path(yaml_file)
         yaml_file.parent.mkdir(parents=True, exist_ok=True)
@@ -103,24 +103,24 @@ class Config:
 
 def load_config(config_name: str) -> Config:
     """
-    加载配置文件
+    Load a configuration file.
 
     Args:
-        config_name: 配置文件名（不含扩展名）或完整路径
+        config_name: Configuration filename without an extension, or a full path.
 
     Returns:
-        Config实例
+        Config instance.
     """
     config_path = Path(config_name)
 
-    # 如果是完整路径
+    # Try the supplied path first.
     if config_path.exists():
         return Config.from_yaml(config_path)
 
-    # 如果只是文件名，从configs目录加载
+    # For a configuration name, search the configs directory.
     config_path = get_configs_dir() / f"{config_name}.yaml"
     if config_path.exists():
         return Config.from_yaml(config_path)
 
-    # 如果都找不到，返回空配置
+    # Return an empty configuration if no file is found.
     return Config()

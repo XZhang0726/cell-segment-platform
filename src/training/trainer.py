@@ -1,7 +1,7 @@
 """
-训练器模块
+Model training utilities.
 
-提供用于训练细胞分割模型的训练器类
+Provides a trainer for cell segmentation models.
 """
 import torch
 import torch.nn as nn
@@ -21,9 +21,9 @@ logger = get_logger(__name__)
 
 class Trainer:
     """
-    训练器类
+    Model trainer.
 
-    负责模型训练、验证和检查点管理
+    Handles training, validation, and checkpoint management.
     """
 
     def __init__(
@@ -34,38 +34,38 @@ class Trainer:
         config: TrainingConfig
     ):
         """
-        初始化训练器
+        Initialize the trainer.
 
         Args:
-            model: 要训练的模型
-            train_loader: 训练数据加载器
-            val_loader: 验证数据加载器
-            config: 训练配置
+            model: Model to train.
+            train_loader: Training data loader.
+            val_loader: Validation data loader.
+            config: Training configuration.
         """
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.config = config
 
-        # 设置设备
+        # Select the device.
         self.device = torch.device(config.device if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
 
-        # 初始化损失函数
+        # Initialize the loss function.
         self.criterion = self._get_loss_function()
 
-        # 初始化优化器
+        # Initialize the optimizer.
         self.optimizer = self._get_optimizer()
 
-        # 初始化学习率调度器
+        # Initialize the learning-rate scheduler.
         self.scheduler = self._get_scheduler()
 
-        # 训练状态
+        # Training state.
         self.current_epoch = 0
         self.best_val_loss = float('inf')
         self.best_val_dice = 0.0
 
-        # 创建保存目录
+        # Create the output directory.
         self.save_dir = Path(config.save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -73,7 +73,7 @@ class Trainer:
         logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     def _get_loss_function(self) -> nn.Module:
-        """获取损失函数"""
+        """Get the loss function."""
         loss_type = self.config.loss_type.lower()
 
         if loss_type == "dice":
@@ -89,7 +89,7 @@ class Trainer:
             raise ValueError(f"Unknown loss type: {loss_type}")
 
     def _get_optimizer(self) -> torch.optim.Optimizer:
-        """获取优化器"""
+        """Get the optimizer."""
         optimizer_name = self.config.optimizer.lower()
 
         if optimizer_name == "adam":
@@ -115,7 +115,7 @@ class Trainer:
             raise ValueError(f"Unknown optimizer: {optimizer_name}")
 
     def _get_scheduler(self) -> Optional[torch.optim.lr_scheduler._LRScheduler]:
-        """获取学习率调度器"""
+        """Get the learning-rate scheduler."""
         scheduler_name = self.config.scheduler.lower()
 
         if scheduler_name == "cosine":
@@ -142,39 +142,39 @@ class Trainer:
 
     def train_epoch(self) -> Dict[str, float]:
         """
-        训练一个epoch
+        Train for one epoch.
 
         Returns:
-            包含训练指标的字典
+            Dictionary of training metrics.
         """
         self.model.train()
         total_loss = 0.0
         total_metrics = {'dice': 0.0, 'iou': 0.0, 'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0}
 
         for batch_idx, (images, masks) in enumerate(self.train_loader):
-            # 移动数据到设备
+            # Move data to the selected device.
             images = images.to(self.device)
             masks = masks.to(self.device)
 
-            # 前向传播
+            # Forward pass.
             self.optimizer.zero_grad()
             outputs = self.model(images)
             loss = self.criterion(outputs, masks)
 
-            # 反向传播
+            # Backward pass.
             loss.backward()
             self.optimizer.step()
 
-            # 记录损失
+            # Record the loss.
             total_loss += loss.item()
 
-            # 计算指标
+            # Compute metrics.
             with torch.no_grad():
                 batch_metrics = calculate_metrics(outputs, masks)
                 for key in total_metrics:
                     total_metrics[key] += batch_metrics[key]
 
-            # 日志输出
+            # Write log output.
             if (batch_idx + 1) % self.config.log_interval == 0:
                 logger.info(
                     f"Epoch [{self.current_epoch}/{self.config.epochs}] "
@@ -183,7 +183,7 @@ class Trainer:
                     f"Dice: {batch_metrics['dice']:.4f}"
                 )
 
-        # 计算平均值
+        # Compute averages.
         num_batches = len(self.train_loader)
         avg_loss = total_loss / num_batches
         avg_metrics = {key: value / num_batches for key, value in total_metrics.items()}
@@ -193,10 +193,10 @@ class Trainer:
 
     def validate(self) -> Dict[str, float]:
         """
-        验证模型
+        Validate the model.
 
         Returns:
-            包含验证指标的字典
+            Dictionary of validation metrics.
         """
         self.model.eval()
         total_loss = 0.0
@@ -204,23 +204,23 @@ class Trainer:
 
         with torch.no_grad():
             for images, masks in self.val_loader:
-                # 移动数据到设备
+                # Move data to the selected device.
                 images = images.to(self.device)
                 masks = masks.to(self.device)
 
-                # 前向传播
+                # Forward pass.
                 outputs = self.model(images)
                 loss = self.criterion(outputs, masks)
 
-                # 记录损失
+                # Record the loss.
                 total_loss += loss.item()
 
-                # 计算指标
+                # Compute metrics.
                 batch_metrics = calculate_metrics(outputs, masks)
                 for key in total_metrics:
                     total_metrics[key] += batch_metrics[key]
 
-        # 计算平均值
+        # Compute averages.
         num_batches = len(self.val_loader)
         avg_loss = total_loss / num_batches
         avg_metrics = {key: value / num_batches for key, value in total_metrics.items()}
@@ -230,10 +230,10 @@ class Trainer:
 
     def save_checkpoint(self, filename: str = "checkpoint.pth"):
         """
-        保存检查点
+        Save a checkpoint.
 
         Args:
-            filename: 检查点文件名
+            filename: Checkpoint filename.
         """
         checkpoint_path = self.save_dir / filename
         checkpoint = {
@@ -253,10 +253,10 @@ class Trainer:
 
     def load_checkpoint(self, checkpoint_path: str):
         """
-        加载检查点
+        Load a checkpoint.
 
         Args:
-            checkpoint_path: 检查点文件路径
+            checkpoint_path: Path to the checkpoint file.
         """
         checkpoint_path = Path(checkpoint_path)
         if not checkpoint_path.exists():
@@ -277,7 +277,7 @@ class Trainer:
 
     def train(self):
         """
-        执行完整的训练流程
+        Run the complete training loop.
         """
         logger.info("Starting training...")
         logger.info(f"Training for {self.config.epochs} epochs")
@@ -288,26 +288,26 @@ class Trainer:
             self.current_epoch = epoch + 1
             start_time = time.time()
 
-            # 训练
+            # Training.
             train_metrics = self.train_epoch()
 
-            # 验证
+            # Validation.
             val_metrics = self.validate()
 
-            # 更新学习率
+            # Update the learning rate.
             if self.scheduler is not None:
                 if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                     self.scheduler.step(val_metrics['loss'])
                 else:
                     self.scheduler.step()
 
-            # 记录当前学习率
+            # Record the current learning rate.
             current_lr = self.optimizer.param_groups[0]['lr']
 
-            # 计算epoch时间
+            # Compute the epoch duration.
             epoch_time = time.time() - start_time
 
-            # 输出epoch总结
+            # Log the epoch summary.
             logger.info(
                 f"\nEpoch [{self.current_epoch}/{self.config.epochs}] Summary:\n"
                 f"  Train Loss: {train_metrics['loss']:.4f} | Train Dice: {train_metrics['dice']:.4f}\n"
@@ -316,7 +316,7 @@ class Trainer:
                 f"  Learning Rate: {current_lr:.6f} | Time: {epoch_time:.2f}s"
             )
 
-            # 保存最佳模型
+            # Save the best model.
             if val_metrics['loss'] < self.best_val_loss:
                 self.best_val_loss = val_metrics['loss']
                 self.save_checkpoint("best_loss.pth")
@@ -327,7 +327,7 @@ class Trainer:
                 self.save_checkpoint("best_dice.pth")
                 logger.info(f"  Saved best dice model (dice: {self.best_val_dice:.4f})")
 
-            # 定期保存检查点
+            # Save checkpoints periodically.
             if (self.current_epoch) % 10 == 0:
                 self.save_checkpoint(f"checkpoint_epoch_{self.current_epoch}.pth")
 

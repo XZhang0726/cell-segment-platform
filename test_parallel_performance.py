@@ -1,5 +1,5 @@
 """
-快速性能测试脚本 - 对比串行和并行处理速度
+Compare sequential and parallel segmentation times on synthetic images.
 """
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
@@ -10,20 +10,20 @@ import numpy as np
 import time
 from PIL import Image
 
-# 添加项目路径
+# Add the project directory to the import path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from src.api.segmentation import CellSegmenter, SegmentationMethod
 
 def create_test_images(num_images=5, size=(512, 512)):
-    """创建测试图像"""
-    print(f"创建 {num_images} 张测试图像...")
+    """Create synthetic test images containing circular objects."""
+    print(f"Creating {num_images} test images...")
     images = []
     for i in range(num_images):
-        # 创建随机噪声图像
+        # Create an image containing random noise
         img = np.random.randint(0, 255, size, dtype=np.uint8)
-        # 添加一些圆形"细胞"
+        # Add circles to represent cells
         for _ in range(20):
             center_x = np.random.randint(50, size[0]-50)
             center_y = np.random.randint(50, size[1]-50)
@@ -35,9 +35,9 @@ def create_test_images(num_images=5, size=(512, 512)):
     return images
 
 def test_sequential(images, method=SegmentationMethod.OTSU):
-    """测试串行处理"""
+    """Test sequential processing"""
     print(f"\n{'='*50}")
-    print(f"串行处理测试 - {len(images)} 张图像")
+    print(f"Sequential processing test - {len(images)} images")
     print(f"{'='*50}")
 
     segmenter = CellSegmenter(method=method)
@@ -45,20 +45,20 @@ def test_sequential(images, method=SegmentationMethod.OTSU):
 
     results = []
     for i, img in enumerate(images):
-        print(f"处理图像 {i+1}/{len(images)}...", end='\r')
+        print(f"Processing image {i+1}/{len(images)}...", end='\r')
         mask = segmenter.segment(img)
         results.append(mask)
 
     elapsed = time.time() - start_time
-    print(f"\n串行处理完成: {elapsed:.2f} 秒")
-    print(f"平均每张: {elapsed/len(images):.2f} 秒")
+    print(f"\nSequential processing completed: {elapsed:.2f} seconds")
+    print(f"Average time per image: {elapsed/len(images):.2f} seconds")
 
     return elapsed, results
 
 def test_parallel(images, method=SegmentationMethod.OTSU):
-    """测试并行处理（模拟批量处理）"""
+    """Test parallel processing with a simulated batch"""
     print(f"\n{'='*50}")
-    print(f"并行处理测试 - {len(images)} 张图像")
+    print(f"Parallel processing test - {len(images)} images")
     print(f"{'='*50}")
 
     from concurrent.futures import ProcessPoolExecutor
@@ -66,7 +66,7 @@ def test_parallel(images, method=SegmentationMethod.OTSU):
 
     cpu_count = multiprocessing.cpu_count()
     max_workers = max(1, cpu_count // 2)
-    print(f"使用 {max_workers} 个进程（总CPU核心数: {cpu_count}）")
+    print(f"Using {max_workers} worker processes ({cpu_count} CPU cores available)")
 
     def process_image(img):
         segmenter = CellSegmenter(method=method)
@@ -78,45 +78,45 @@ def test_parallel(images, method=SegmentationMethod.OTSU):
         results = list(executor.map(process_image, images))
 
     elapsed = time.time() - start_time
-    print(f"并行处理完成: {elapsed:.2f} 秒")
-    print(f"平均每张: {elapsed/len(images):.2f} 秒")
+    print(f"Parallel processing completed: {elapsed:.2f} seconds")
+    print(f"Average time per image: {elapsed/len(images):.2f} seconds")
 
     return elapsed, results
 
 def main():
     print("="*60)
-    print("细胞分割并行处理性能测试")
+    print("Parallel cell segmentation benchmark")
     print("="*60)
 
-    # 创建测试图像
-    num_images = 8  # 测试图像数量
+    # Create the test images
+    num_images = 8  # Number of test images
     images = create_test_images(num_images)
 
-    # 使用Otsu方法测试（快速）
+    # Use Otsu thresholding for a short benchmark
     method = SegmentationMethod.OTSU
-    print(f"\n使用方法: Otsu阈值分割")
+    print(f"\nSegmentation method: Otsu thresholding")
 
-    # 串行测试
+    # Sequential benchmark
     time_sequential, _ = test_sequential(images, method)
 
-    # 并行测试
+    # Parallel benchmark
     time_parallel, _ = test_parallel(images, method)
 
-    # 性能对比
+    # Performance comparison
     print(f"\n{'='*60}")
-    print("性能对比结果")
+    print("Performance comparison results")
     print(f"{'='*60}")
-    print(f"串行处理: {time_sequential:.2f} 秒")
-    print(f"并行处理: {time_parallel:.2f} 秒")
+    print(f"Sequential processing: {time_sequential:.2f} seconds")
+    print(f"Parallel processing: {time_parallel:.2f} seconds")
 
     if time_parallel < time_sequential:
         speedup = time_sequential / time_parallel
         improvement = ((time_sequential - time_parallel) / time_sequential) * 100
-        print(f"\n✅ 加速比: {speedup:.2f}x")
-        print(f"✅ 性能提升: {improvement:.1f}%")
-        print(f"✅ 节省时间: {time_sequential - time_parallel:.2f} 秒")
+        print(f"\n[OK] Speedup: {speedup:.2f}x")
+        print(f"[OK] Performance improvement: {improvement:.1f}%")
+        print(f"[OK] Time saved: {time_sequential - time_parallel:.2f} seconds")
     else:
-        print(f"\n⚠️ 并行处理未显示优势（可能图像太少或处理太快）")
+        print(f"\n[WARN] No parallel speedup observed (the batch or workload may be too small)")
 
     print(f"\n{'='*60}")
 

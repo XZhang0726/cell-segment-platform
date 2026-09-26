@@ -1,7 +1,7 @@
 """
-日志配置模块
+Logging configuration.
 
-使用loguru提供统一的日志管理功能
+Provides consistent logging through loguru.
 """
 import sys
 from pathlib import Path
@@ -16,19 +16,19 @@ def setup_logger(
     format_string: str = None
 ):
     """
-    配置日志系统
+    Configure logging.
 
     Args:
-        log_file: 日志文件路径，如果为None则只输出到控制台
-        level: 日志级别 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        rotation: 日志轮转大小
-        retention: 日志保留时间
-        format_string: 自定义日志格式
+        log_file: Log file path; None enables console output only.
+        level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+        rotation: Log rotation size.
+        retention: Log retention period.
+        format_string: Custom log format.
     """
-    # 移除默认的handler
+    # Remove the default handler.
     logger.remove()
 
-    # 默认格式
+    # Default log format.
     if format_string is None:
         format_string = (
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
@@ -37,7 +37,7 @@ def setup_logger(
             "<level>{message}</level>"
         )
 
-    # 添加控制台输出
+    # Add console output.
     logger.add(
         sys.stderr,
         format=format_string,
@@ -45,7 +45,7 @@ def setup_logger(
         colorize=True
     )
 
-    # 如果指定了日志文件，添加文件输出
+    # Add file output when a log file is specified.
     if log_file:
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,13 +64,13 @@ def setup_logger(
 
 def get_logger(name: str = None):
     """
-    获取logger实例
+    Get a logger instance.
 
     Args:
-        name: logger名称
+        name: Logger name.
 
     Returns:
-        logger实例
+        Logger instance.
     """
     if name:
         return logger.bind(name=name)

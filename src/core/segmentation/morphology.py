@@ -1,7 +1,7 @@
 """
-形态学操作模块
+Morphological image operations.
 
-提供各种形态学操作方法
+Provides common morphological operations.
 """
 import cv2
 import numpy as np
@@ -13,19 +13,19 @@ logger = get_logger(__name__)
 
 
 class MorphologicalOps:
-    """形态学操作类"""
+    """Morphological operations."""
 
     @staticmethod
     def get_kernel(shape: str = 'rect', size: Tuple[int, int] = (5, 5)) -> np.ndarray:
         """
-        获取形态学核
+        Create a morphological kernel.
 
         Args:
-            shape: 核形状 ('rect', 'ellipse', 'cross')
-            size: 核大小
+            shape: Kernel shape ('rect', 'ellipse', 'cross').
+            size: Kernel size.
 
         Returns:
-            形态学核
+            Morphological kernel.
         """
         shapes = {
             'rect': cv2.MORPH_RECT,
@@ -47,16 +47,16 @@ class MorphologicalOps:
         iterations: int = 1
     ) -> np.ndarray:
         """
-        腐蚀操作
+        Apply erosion.
 
         Args:
-            image: 输入图像
-            kernel_size: 核大小
-            kernel_shape: 核形状
-            iterations: 迭代次数
+            image: Input image.
+            kernel_size: Kernel size.
+            kernel_shape: Kernel shape.
+            iterations: Number of iterations.
 
         Returns:
-            腐蚀后的图像
+            Eroded image.
         """
         kernel = MorphologicalOps.get_kernel(kernel_shape, kernel_size)
         eroded = cv2.erode(image, kernel, iterations=iterations)
@@ -72,16 +72,16 @@ class MorphologicalOps:
         iterations: int = 1
     ) -> np.ndarray:
         """
-        膨胀操作
+        Apply dilation.
 
         Args:
-            image: 输入图像
-            kernel_size: 核大小
-            kernel_shape: 核形状
-            iterations: 迭代次数
+            image: Input image.
+            kernel_size: Kernel size.
+            kernel_shape: Kernel shape.
+            iterations: Number of iterations.
 
         Returns:
-            膨胀后的图像
+            Dilated image.
         """
         kernel = MorphologicalOps.get_kernel(kernel_shape, kernel_size)
         dilated = cv2.dilate(image, kernel, iterations=iterations)
@@ -96,15 +96,15 @@ class MorphologicalOps:
         kernel_shape: str = 'rect'
     ) -> np.ndarray:
         """
-        开运算（先腐蚀后膨胀，去除小物体）
+        Apply opening: erosion followed by dilation to remove small objects.
 
         Args:
-            image: 输入图像
-            kernel_size: 核大小
-            kernel_shape: 核形状
+            image: Input image.
+            kernel_size: Kernel size.
+            kernel_shape: Kernel shape.
 
         Returns:
-            开运算后的图像
+            Opened image.
         """
         kernel = MorphologicalOps.get_kernel(kernel_shape, kernel_size)
         opened = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
@@ -119,15 +119,15 @@ class MorphologicalOps:
         kernel_shape: str = 'rect'
     ) -> np.ndarray:
         """
-        闭运算（先膨胀后腐蚀，填充小孔）
+        Apply closing: dilation followed by erosion to fill small holes.
 
         Args:
-            image: 输入图像
-            kernel_size: 核大小
-            kernel_shape: 核形状
+            image: Input image.
+            kernel_size: Kernel size.
+            kernel_shape: Kernel shape.
 
         Returns:
-            闭运算后的图像
+            Closed image.
         """
         kernel = MorphologicalOps.get_kernel(kernel_shape, kernel_size)
         closed = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
@@ -142,15 +142,15 @@ class MorphologicalOps:
         kernel_shape: str = 'rect'
     ) -> np.ndarray:
         """
-        形态学梯度（膨胀-腐蚀，提取边界）
+        Compute the morphological gradient: dilation minus erosion to extract boundaries.
 
         Args:
-            image: 输入图像
-            kernel_size: 核大小
-            kernel_shape: 核形状
+            image: Input image.
+            kernel_size: Kernel size.
+            kernel_shape: Kernel shape.
 
         Returns:
-            梯度图像
+            Gradient image.
         """
         kernel = MorphologicalOps.get_kernel(kernel_shape, kernel_size)
         gradient = cv2.morphologyEx(image, cv2.MORPH_GRADIENT, kernel)
@@ -165,15 +165,15 @@ class MorphologicalOps:
         kernel_shape: str = 'rect'
     ) -> np.ndarray:
         """
-        顶帽变换（原图-开运算，提取亮细节）
+        Apply the top-hat transform: original minus opening to extract bright details.
 
         Args:
-            image: 输入图像
-            kernel_size: 核大小
-            kernel_shape: 核形状
+            image: Input image.
+            kernel_size: Kernel size.
+            kernel_shape: Kernel shape.
 
         Returns:
-            顶帽变换后的图像
+            Top-hat transformed image.
         """
         kernel = MorphologicalOps.get_kernel(kernel_shape, kernel_size)
         tophat = cv2.morphologyEx(image, cv2.MORPH_TOPHAT, kernel)
@@ -188,15 +188,15 @@ class MorphologicalOps:
         kernel_shape: str = 'rect'
     ) -> np.ndarray:
         """
-        黑帽变换（闭运算-原图，提取暗细节）
+        Apply the black-hat transform: closing minus original to extract dark details.
 
         Args:
-            image: 输入图像
-            kernel_size: 核大小
-            kernel_shape: 核形状
+            image: Input image.
+            kernel_size: Kernel size.
+            kernel_shape: Kernel shape.
 
         Returns:
-            黑帽变换后的图像
+            Black-hat transformed image.
         """
         kernel = MorphologicalOps.get_kernel(kernel_shape, kernel_size)
         blackhat = cv2.morphologyEx(image, cv2.MORPH_BLACKHAT, kernel)
@@ -205,22 +205,22 @@ class MorphologicalOps:
         return blackhat
 
 
-# 便捷函数
+# Convenience functions.
 def erode(image: np.ndarray, kernel_size: Tuple[int, int] = (5, 5)) -> np.ndarray:
-    """腐蚀操作的便捷函数"""
+    """Convenience wrapper for erosion."""
     return MorphologicalOps.erode(image, kernel_size)
 
 
 def dilate(image: np.ndarray, kernel_size: Tuple[int, int] = (5, 5)) -> np.ndarray:
-    """膨胀操作的便捷函数"""
+    """Convenience wrapper for dilation."""
     return MorphologicalOps.dilate(image, kernel_size)
 
 
 def opening(image: np.ndarray, kernel_size: Tuple[int, int] = (5, 5)) -> np.ndarray:
-    """开运算的便捷函数"""
+    """Convenience wrapper for opening."""
     return MorphologicalOps.opening(image, kernel_size)
 
 
 def closing(image: np.ndarray, kernel_size: Tuple[int, int] = (5, 5)) -> np.ndarray:
-    """闭运算的便捷函数"""
+    """Convenience wrapper for closing."""
     return MorphologicalOps.closing(image, kernel_size)

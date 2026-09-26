@@ -1,5 +1,5 @@
 """
-Test script to verify RTX 5070 GPU is working with Cellpose
+Run a Cellpose smoke test and report the available CUDA environment.
 """
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
@@ -10,7 +10,7 @@ from cellpose import models
 import time
 
 print("=" * 60)
-print("RTX 5070 GPU + CELLPOSE VERIFICATION TEST")
+print("CELLPOSE AND CUDA ENVIRONMENT SMOKE TEST")
 print("=" * 60)
 
 # Test 1: PyTorch GPU Detection
@@ -22,23 +22,23 @@ print(f"    GPU count: {torch.cuda.device_count()}")
 if torch.cuda.is_available():
     print(f"    GPU name: {torch.cuda.get_device_name(0)}")
     print(f"    GPU compute capability: {torch.cuda.get_device_capability(0)}")
-    print(f"    [OK] RTX 5070 detected successfully!")
+    print(f"    [OK] A CUDA device was detected.")
 
 # Test 2: Cellpose Model Initialization
 print("\n[2] Cellpose Model Initialization:")
 try:
     model = models.CellposeModel(gpu=True)
-    print(f"    [OK] Cellpose model initialized with GPU support")
+    print(f"    [OK] Cellpose initialized with GPU acceleration requested.")
 except Exception as e:
     print(f"    [ERROR] Error: {e}")
     exit(1)
 
-# Test 3: GPU Segmentation Performance Test
-print("\n[3] GPU Segmentation Performance Test:")
+# Test 3: Segmentation Smoke Test
+print("\n[3] Segmentation Smoke Test:")
 print("    Creating test image (512x512)...")
 test_image = np.random.randint(0, 255, (512, 512), dtype=np.uint8)
 
-print("    Running segmentation on GPU...")
+print("    Running segmentation with GPU acceleration requested...")
 start_time = time.time()
 try:
     masks, flows, styles = model.eval(test_image, diameter=30, channels=[0, 0])
@@ -51,11 +51,11 @@ except Exception as e:
 
 # Final Summary
 print("\n" + "=" * 60)
-print("FINAL RESULT: ALL TESTS PASSED!")
+print("FINAL RESULT: SEGMENTATION SMOKE TEST COMPLETED")
 print("=" * 60)
-print("[OK] RTX 5070 GPU is fully operational with Cellpose")
-print("[OK] PyTorch 2.10.0+cu128 with CUDA 12.8 support")
-print("[OK] Cellpose 4.0.8 with GPU acceleration enabled")
+print("[OK] Cellpose completed inference on the synthetic test image.")
+print("[INFO] PyTorch and CUDA versions are reported above.")
+print("[INFO] A GPU request alone does not establish which device performed inference.")
 print("=" * 60)
-print("\nYou can now use GPU-accelerated Cellpose segmentation!")
-print("Remember to activate the cellpose_gpu environment before running.")
+print("\nInspect the detected device and backend logs before interpreting GPU performance.")
+print("Run this script in the environment containing your Cellpose installation.")

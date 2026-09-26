@@ -1,19 +1,19 @@
 """
-多模型分割融合模块
+Multi-model segmentation fusion.
 
-提供实例匹配、融合引擎和不确定性计算功能
-包括简单融合策略和高级融合方法（Dempster-Shafer理论）
+Provides instance matching, mask fusion, and uncertainty estimation.
+Includes simple fusion strategies and Dempster-Shafer evidence fusion.
 """
 
-# 使用优化版本的实例匹配（57倍加速）
+# Use optimized instance matching.
 from .instance_matcher_optimized import match_instances_optimized as match_instances
 from .fusion_engine import fuse_instances, fuse_instances_dst
 from .uncertainty import compute_disagreement_map, compute_model_consistency
 
-# 保留原始版本的compute_iou用于兼容性
+# Keep the original compute_iou implementation for compatibility.
 from .instance_matcher import compute_iou
 
-# 高级融合方法：Dempster-Shafer理论
+# Dempster-Shafer evidence fusion.
 from .dempster_shafer import (
     DempsterShaferFusion,
     FusionResult,
@@ -21,35 +21,35 @@ from .dempster_shafer import (
     generate_conflict_map
 )
 
-# 置信度工具
+# Confidence utilities.
 from .confidence_utils import generate_confidence_maps
 
-# 几何辅助细化
+# Geometric boundary refinement.
 from .geometric_refinement import watershed_refinement, compute_gradient_map
 
 __all__ = [
-    # 基础功能
+    # Core functionality.
     'compute_iou',
     'match_instances',
 
-    # 简单融合策略
+    # Simple fusion strategies.
     'fuse_instances',
 
-    # 高级融合方法（DST）
+    # Dempster-Shafer fusion.
     'fuse_instances_dst',
     'DempsterShaferFusion',
     'FusionResult',
     'handle_conflict',
     'generate_conflict_map',
 
-    # 置信度工具
+    # Confidence utilities.
     'generate_confidence_maps',
 
-    # 几何辅助细化
+    # Geometric boundary refinement.
     'watershed_refinement',
     'compute_gradient_map',
 
-    # 不确定性计算
+    # Uncertainty estimation.
     'compute_disagreement_map',
     'compute_model_consistency'
 ]

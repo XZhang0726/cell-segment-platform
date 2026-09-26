@@ -1,13 +1,13 @@
 """
-CellViT深度学习细胞分割模块
+CellViT cell segmentation integration.
 
-使用CellViT预训练模型进行细胞核分割
-CellViT是基于Vision Transformer的细胞分割模型，主要用于病理切片图像
+Segment nuclei using a pretrained CellViT model.
+CellViT uses a vision transformer and is designed for histopathology images.
 
-注意：
-- CellViT通过subprocess在专门的环境中运行（env_cellvit）
-- 主应用可以在任何环境中运行，CellViT会自动调用正确的环境
-- 模型主要为大型病理切片设计，这里提供了适配小图像的接口
+Notes:
+- CellViT runs in a dedicated environment (env_cellvit) through a subprocess.
+- The main application can run separately and invokes the CellViT environment.
+- This interface adapts a histopathology model to smaller input images.
 """
 import os
 import sys
@@ -28,42 +28,43 @@ def cellvit_segment(
     progress_bar=None
 ) -> np.ndarray:
     """
-    使用CellViT进行细胞核分割
+    Segment nuclei using CellViT.
 
-    通过subprocess在cellvit环境中执行推理，避免环境冲突
+    Run inference in the CellViT environment through a subprocess to isolate dependencies.
 
     Args:
-        image: 输入图像 (H, W, C) RGB格式或 (H, W) 灰度图
-        model_type: 模型类型，目前支持 "CellViT-256"
-        use_gpu: 是否使用GPU加速
-        target_size: 目标图像大小（CellViT-256使用256x256）
-        progress_bar: Streamlit进度条对象
+        image: Input RGB image (H, W, C) or grayscale image (H, W).
+        model_type: Model type; currently supports "CellViT-256".
+        use_gpu: Enable GPU acceleration when available.
+        target_size: Target image size (256x256 for CellViT-256).
+        progress_bar: Streamlit progress bar object.
 
     Returns:
-        分割掩码，每个细胞核有唯一标签
+        Integer output mask. Successful instance postprocessing assigns unique
+        nucleus labels; the worker may otherwise return its binary-map fallback.
 
     Raises:
-        RuntimeError: 如果推理失败
+        RuntimeError: If inference fails.
     """
-    # 检查图像格式
+    # Check the image format.
     original_shape = image.shape
     if image.ndim == 2:
-        # 灰度图转RGB
+        # Convert grayscale to RGB.
         image = np.stack([image, image, image], axis=-1)
     elif image.ndim == 3 and image.shape[2] == 4:
-        # RGBA转RGB
+        # Convert RGBA to RGB.
         image = image[:, :, :3]
     elif image.ndim == 3 and image.shape[2] != 3:
         raise ValueError(f"Unsupported image shape: {image.shape}")
 
     logger.info(f"CellViT segmentation: image_shape={original_shape}, target_size={target_size}")
 
-    # 获取项目根目录和环境路径
+    # Locate the project root and environment.
     project_root = Path(__file__).parent.parent.parent.parent
     cellvit_env_path = project_root / "env_cellvit"
     worker_script = project_root / "src" / "core" / "segmentation" / "cellvit_worker.py"
 
-    # 检查环境和脚本是否存在
+    # Check that the environment and worker script exist.
     if not cellvit_env_path.exists():
         raise RuntimeError(
             f"CellViT environment not found at {cellvit_env_path}\n"
@@ -75,7 +76,7 @@ def cellvit_segment(
             f"CellViT worker script not found at {worker_script}"
         )
 
-    # 确定Python可执行文件路径
+    # Locate the Python executable.
     if sys.platform == "win32":
         python_exe = cellvit_env_path / "python.exe"
         if not python_exe.exists():
@@ -92,14 +93,14 @@ def cellvit_segment(
     logger.info(f"Python executable: {python_exe}")
 
     try:
-        # 更新进度条
+        # Update the progress bar.
         if progress_bar is not None:
             progress_bar.progress(0.2)
 
-        # 创建临时文件用于数据传递
+        # Create temporary files to exchange data with the worker.
         with tempfile.NamedTemporaryFile(mode='wb', suffix='.pkl', delete=False) as input_file:
             input_path = input_file.name
-            # 准备输入数据
+            # Prepare input data.
             input_data = {
                 'image': image,
                 'model_type': model_type,
@@ -111,25 +112,25 @@ def cellvit_segment(
         with tempfile.NamedTemporaryFile(mode='wb', suffix='.pkl', delete=False) as output_file:
             output_path = output_file.name
 
-        # 更新进度条
+        # Update the progress bar.
         if progress_bar is not None:
             progress_bar.progress(0.4)
 
         logger.info("Calling CellViT worker in subprocess...")
 
-        # 调用worker脚本
+        # Invoke the worker script.
         result = subprocess.run(
             [str(python_exe), str(worker_script), input_path, output_path],
             capture_output=True,
             text=True,
-            timeout=300  # 5分钟超时
+            timeout=300  # Five-minute timeout.
         )
 
-        # 更新进度条
+        # Update the progress bar.
         if progress_bar is not None:
             progress_bar.progress(0.8)
 
-        # 检查执行结果
+        # Check the worker execution result.
         if result.returncode != 0:
             error_msg = f"CellViT worker failed with return code {result.returncode}\n"
             error_msg += f"STDOUT: {result.stdout}\n"
@@ -137,28 +138,28 @@ def cellvit_segment(
             logger.error(error_msg)
             raise RuntimeError(error_msg)
 
-        # 打印CellViT worker的调试输出（成功时）
+        # Log successful CellViT worker output for debugging.
         if result.stdout:
             logger.info(f"CellViT worker stdout:\n{result.stdout}")
         if result.stderr:
             logger.info(f"CellViT worker stderr:\n{result.stderr}")
 
-        # 读取输出结果
+        # Read the output data.
         with open(output_path, 'rb') as f:
             output_data = pickle.load(f)
 
-        # 清理临时文件
+        # Remove temporary files.
         try:
             os.unlink(input_path)
             os.unlink(output_path)
         except:
             pass
 
-        # 更新进度条
+        # Update the progress bar.
         if progress_bar is not None:
             progress_bar.progress(1.0)
 
-        # 检查结果
+        # Check the result.
         if not output_data['success']:
             raise RuntimeError(f"CellViT inference failed: {output_data['error']}")
 

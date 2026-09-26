@@ -1,7 +1,7 @@
 """
-不确定性计算模块
+Uncertainty estimation.
 
-计算模型间的分歧热图和一致性指标
+Compute disagreement heatmaps and consistency metrics across models.
 """
 import numpy as np
 from typing import List, Tuple
@@ -12,54 +12,54 @@ logger = get_logger(__name__)
 
 def compute_disagreement_map(masks_list: List[np.ndarray]) -> Tuple[np.ndarray, float]:
     """
-    计算分歧图（Disagreement Map）
+    Compute the disagreement map.
 
     Args:
-        masks_list: 多个模型的标签掩码列表
+        masks_list: List of labeled masks from multiple models.
 
     Returns:
-        disagreement_map: 不确定性热图 (0-1范围)
-        consistency_score: 全局一致性分数
+        disagreement_map: Uncertainty heatmap in the range [0, 1].
+        consistency_score: Global consistency score.
     """
-    logger.info(f"计算分歧图，共{len(masks_list)}个模型")
+    logger.info(f"Computing disagreement map for {len(masks_list)} models")
 
-    # 1. 将标签掩码转换为二值掩码（前景/背景）
+    # 1. Convert labeled masks to binary foreground/background masks.
     binary_masks = []
     for mask in masks_list:
         binary = (mask > 0).astype(np.float32)
         binary_masks.append(binary)
 
-    # 2. 堆叠所有二值掩码
+    # 2. Stack all binary masks.
     stack = np.stack(binary_masks, axis=0)
 
-    # 3. 计算每个像素的投票比例
-    vote_ratio = np.mean(stack, axis=0)  # 范围 [0, 1]
+    # 3. Compute the fraction of foreground votes at each pixel.
+    vote_ratio = np.mean(stack, axis=0)  # Range: [0, 1].
 
-    # 4. 计算分歧度
-    # 当vote_ratio=0.5时，分歧度最大（模型完全分裂）
-    # 当vote_ratio=0或1时，分歧度最小（模型完全一致）
+    # 4. Compute disagreement.
+    # Disagreement is maximal at vote_ratio=0.5, when models are evenly split.
+    # Disagreement is minimal at vote_ratio=0 or 1, when all models agree.
     disagreement = 1.0 - np.abs(2 * vote_ratio - 1)
 
-    # 5. 计算全局一致性分数
+    # 5. Compute the global consistency score.
     consistency_score = 1.0 - np.mean(disagreement)
 
-    logger.info(f"全局一致性分数: {consistency_score:.4f}")
+    logger.info(f"Global consistency score: {consistency_score:.4f}")
 
     return disagreement, consistency_score
 
 
 def compute_model_consistency(masks_list: List[np.ndarray]) -> Tuple[np.ndarray, float]:
     """
-    计算模型间的成对一致性
+    Compute pairwise consistency between models.
 
     Args:
-        masks_list: 多个模型的标签掩码列表
+        masks_list: List of labeled masks from multiple models.
 
     Returns:
-        consistency_matrix: 模型间的IoU矩阵
-        avg_consistency: 平均一致性
+        consistency_matrix: Pairwise model IoU matrix.
+        avg_consistency: Mean consistency.
     """
-    logger.info(f"计算模型间一致性，共{len(masks_list)}个模型")
+    logger.info(f"Computing consistency across {len(masks_list)} models")
 
     n_models = len(masks_list)
     consistency_matrix = np.zeros((n_models, n_models))
@@ -69,7 +69,7 @@ def compute_model_consistency(masks_list: List[np.ndarray]) -> Tuple[np.ndarray,
             if i == j:
                 consistency_matrix[i, j] = 1.0
             else:
-                # 计算两个模型的整体IoU
+                # Compute the overall IoU between two models.
                 mask_i = (masks_list[i] > 0)
                 mask_j = (masks_list[j] > 0)
                 intersection = np.logical_and(mask_i, mask_j)
@@ -78,10 +78,10 @@ def compute_model_consistency(masks_list: List[np.ndarray]) -> Tuple[np.ndarray,
                 consistency_matrix[i, j] = iou
                 consistency_matrix[j, i] = iou
 
-    # 计算平均一致性（排除对角线）
+    # Compute mean consistency, excluding the diagonal.
     mask = ~np.eye(n_models, dtype=bool)
     avg_consistency = np.mean(consistency_matrix[mask])
 
-    logger.info(f"平均模型一致性: {avg_consistency:.4f}")
+    logger.info(f"Mean model consistency: {avg_consistency:.4f}")
 
     return consistency_matrix, avg_consistency

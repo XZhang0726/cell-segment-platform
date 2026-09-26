@@ -1,5 +1,5 @@
 """
-细胞特征提取包
+Cell feature extraction package.
 """
 from .morphology import extract_cell_features, get_feature_statistics, filter_cells_by_features
 from .advanced_morphology import (

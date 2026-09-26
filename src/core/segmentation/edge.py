@@ -1,7 +1,7 @@
 """
-边缘检测算法模块
+Edge detection algorithms.
 
-提供各种边缘检测方法
+Provides several edge detection methods.
 """
 import cv2
 import numpy as np
@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 
 class EdgeDetection:
-    """边缘检测类"""
+    """Edge detection methods."""
 
     @staticmethod
     def canny(
@@ -24,17 +24,17 @@ class EdgeDetection:
         L2gradient: bool = False
     ) -> np.ndarray:
         """
-        Canny边缘检测
+        Detect edges using the Canny algorithm.
 
         Args:
-            image: 输入图像（灰度图）
-            threshold1: 第一个阈值（低阈值）
-            threshold2: 第二个阈值（高阈值）
-            aperture_size: Sobel算子的孔径大小
-            L2gradient: 是否使用L2范数计算梯度幅值
+            image: Input grayscale image.
+            threshold1: Lower hysteresis threshold.
+            threshold2: Upper hysteresis threshold.
+            aperture_size: Aperture size of the Sobel operator.
+            L2gradient: Use the L2 norm to compute gradient magnitude.
 
         Returns:
-            边缘图像
+            Edge image.
         """
         if image.ndim != 2:
             raise ValueError("Canny edge detection requires grayscale image")
@@ -58,21 +58,21 @@ class EdgeDetection:
         ksize: int = 3
     ) -> np.ndarray:
         """
-        Sobel边缘检测
+        Detect edges using the Sobel operator.
 
         Args:
-            image: 输入图像（灰度图）
-            dx: x方向的导数阶数
-            dy: y方向的导数阶数
-            ksize: Sobel核的大小
+            image: Input grayscale image.
+            dx: Derivative order in the x direction.
+            dy: Derivative order in the y direction.
+            ksize: Sobel kernel size.
 
         Returns:
-            边缘图像
+            Edge image.
         """
         if image.ndim != 2:
             raise ValueError("Sobel edge detection requires grayscale image")
 
-        # 计算x和y方向的梯度
+        # Compute gradients in the x and y directions.
         if dx > 0:
             grad_x = cv2.Sobel(image, cv2.CV_64F, dx, 0, ksize=ksize)
             grad_x = np.abs(grad_x)
@@ -85,7 +85,7 @@ class EdgeDetection:
         else:
             grad_y = 0
 
-        # 合并梯度
+        # Combine the gradients.
         if dx > 0 and dy > 0:
             edges = np.sqrt(grad_x**2 + grad_y**2)
         elif dx > 0:
@@ -93,7 +93,7 @@ class EdgeDetection:
         else:
             edges = grad_y
 
-        # 归一化到0-255
+        # Normalize to [0, 255].
         edges = np.uint8(np.clip(edges, 0, 255))
 
         logger.debug(f"Sobel edge detection: dx={dx}, dy={dy}, ksize={ksize}")
@@ -105,14 +105,14 @@ class EdgeDetection:
         ksize: int = 3
     ) -> np.ndarray:
         """
-        Laplacian边缘检测
+        Detect edges using the Laplacian operator.
 
         Args:
-            image: 输入图像（灰度图）
-            ksize: 核大小
+            image: Input grayscale image.
+            ksize: Kernel size.
 
         Returns:
-            边缘图像
+            Edge image.
         """
         if image.ndim != 2:
             raise ValueError("Laplacian edge detection requires grayscale image")
@@ -131,15 +131,15 @@ class EdgeDetection:
         dy: int = 0
     ) -> np.ndarray:
         """
-        Scharr边缘检测（更精确的Sobel算子）
+        Detect edges using the Scharr operator, a refinement of the Sobel operator.
 
         Args:
-            image: 输入图像（灰度图）
-            dx: x方向的导数阶数
-            dy: y方向的导数阶数
+            image: Input grayscale image.
+            dx: Derivative order in the x direction.
+            dy: Derivative order in the y direction.
 
         Returns:
-            边缘图像
+            Edge image.
         """
         if image.ndim != 2:
             raise ValueError("Scharr edge detection requires grayscale image")
@@ -152,17 +152,17 @@ class EdgeDetection:
         return scharr
 
 
-# 便捷函数
+# Convenience functions.
 def canny_edge(image: np.ndarray, threshold1: int = 50, threshold2: int = 150) -> np.ndarray:
-    """Canny边缘检测的便捷函数"""
+    """Convenience wrapper for Canny edge detection."""
     return EdgeDetection.canny(image, threshold1, threshold2)
 
 
 def sobel_edge(image: np.ndarray, ksize: int = 3) -> np.ndarray:
-    """Sobel边缘检测的便捷函数"""
+    """Convenience wrapper for Sobel edge detection."""
     return EdgeDetection.sobel(image, dx=1, dy=1, ksize=ksize)
 
 
 def laplacian_edge(image: np.ndarray, ksize: int = 3) -> np.ndarray:
-    """Laplacian边缘检测的便捷函数"""
+    """Convenience wrapper for Laplacian edge detection."""
     return EdgeDetection.laplacian(image, ksize=ksize)

@@ -1,26 +1,26 @@
 """
-机器学习模块测试脚本
+Machine learning module tests
 
-使用模拟数据测试supervised_learning、virtual_screening和active_learning模块
-验证所有功能是否正常工作
+Exercise the supervised_learning, virtual_screening, and active_learning
+modules with synthetic classification and regression data.
 
-测试内容：
-1. 监督学习模块测试（分类和回归）
-2. 虚拟筛选模块测试
-3. 主动学习模块测试
+Test coverage:
+1. Supervised learning tests for classification and regression
+2. Virtual screening module tests
+3. Active learning module tests
 """
 
 import sys
 from pathlib import Path
 
-# 添加src目录到路径
+# Add the src directory to the import path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 import numpy as np
 import pandas as pd
 from loguru import logger
 
-# 配置日志
+# Configure logging
 logger.remove()
 logger.add(sys.stdout, level="INFO")
 
@@ -35,16 +35,16 @@ def generate_classification_data(
     random_state: int = 42
 ) -> pd.DataFrame:
     """
-    生成合成分类数据集
+    Generate a synthetic classification dataset
 
     Args:
-        n_samples: 样本数量
-        n_features: 特征数量
-        n_classes: 类别数量
-        random_state: 随机种子
+        n_samples: Number of samples
+        n_features: Number of features
+        n_classes: Number of classes
+        random_state: Random seed
 
     Returns:
-        包含特征和目标的DataFrame
+        Features and target stored in a DataFrame
     """
     from sklearn.datasets import make_classification
 
@@ -57,10 +57,10 @@ def generate_classification_data(
         n_redundant=int(n_features * 0.2),
         n_classes=n_classes,
         random_state=random_state,
-        flip_y=0.05  # 添加5%噪声
+        flip_y=0.05  # Randomly replace 5% of the labels
     )
 
-    # 创建DataFrame
+    # Create a DataFrame
     df = pd.DataFrame(X, columns=[f'feature_{i}' for i in range(n_features)])
     df['target'] = y
 
@@ -76,15 +76,15 @@ def generate_regression_data(
     random_state: int = 42
 ) -> pd.DataFrame:
     """
-    生成合成回归数据集
+    Generate a synthetic regression dataset
 
     Args:
-        n_samples: 样本数量
-        n_features: 特征数量
-        random_state: 随机种子
+        n_samples: Number of samples
+        n_features: Number of features
+        random_state: Random seed
 
     Returns:
-        包含特征和目标的DataFrame
+        Features and target stored in a DataFrame
     """
     from sklearn.datasets import make_regression
 
@@ -98,7 +98,7 @@ def generate_regression_data(
         random_state=random_state
     )
 
-    # 创建DataFrame
+    # Create a DataFrame
     df = pd.DataFrame(X, columns=[f'feature_{i}' for i in range(n_features)])
     df['target'] = y
 
@@ -115,27 +115,27 @@ def split_data_for_active_learning(
     random_state: int = 42
 ) -> tuple:
     """
-    将数据分割为主动学习所需的初始训练集和样本池
+    Split the data into an initial training set and an active learning pool
 
     Args:
-        df: 完整数据集
-        n_initial: 初始训练集大小
-        n_pool: 样本池大小
-        random_state: 随机种子
+        df: Complete dataset
+        n_initial: Initial training set size
+        n_pool: Sample pool size
+        random_state: Random seed
 
     Returns:
         (X_train_initial, y_train_initial, X_pool, y_pool)
     """
     np.random.seed(random_state)
 
-    # 分离特征和目标
+    # Separate the features and target
     X = df.drop('target', axis=1).values
     y = df['target'].values
 
-    # 随机打乱
+    # Shuffle randomly
     indices = np.random.permutation(len(df))
 
-    # 分割
+    # Split indices into the initial training set and candidate pool
     train_indices = indices[:n_initial]
     pool_indices = indices[n_initial:n_initial + n_pool]
 
@@ -154,17 +154,17 @@ def split_data_for_active_learning(
 # ============================================================================
 
 def test_supervised_learning_classification():
-    """测试监督学习模块 - 分类任务"""
+    """Test supervised classification"""
     from ml.supervised_learning import train_supervised_model, save_model, load_model
 
     logger.info("\n" + "="*80)
     logger.info("Testing Supervised Learning - Classification")
     logger.info("="*80)
 
-    # 生成数据
+    # Generate data
     df = generate_classification_data(n_samples=500, n_features=15, n_classes=3)
 
-    # 训练模型
+    # Train the model
     logger.info("\n1. Training Random Forest classifier...")
     model, results = train_supervised_model(
         data_df=df,
@@ -179,13 +179,13 @@ def test_supervised_learning_classification():
         random_state=42
     )
 
-    # 检查结果
+    # Check the results
     logger.info(f"[OK] Model trained successfully")
     logger.info(f"[OK] Accuracy: {results['metrics']['accuracy']:.4f}")
-    logger.info(f"[OK] F1 Score: {results['metrics']['f1_score']:.4f}")
+    logger.info(f"[OK] F1 score: {results['metrics']['f1_score']:.4f}")
     logger.info(f"[OK] Number of features used: {len(results['feature_names'])}")
 
-    # 测试模型保存和加载
+    # Test model serialization and loading
     logger.info("\n2. Testing model save/load...")
     model_path = Path(__file__).parent / 'test_model_clf.pkl'
     save_model(model, str(model_path), metadata=results['train_info'],
@@ -198,7 +198,7 @@ def test_supervised_learning_classification():
     logger.info(f"[OK] Model loaded successfully")
     logger.info(f"[OK] Task type: {loaded_package['task_type']}")
 
-    # 清理
+    # Clean up
     model_path.unlink()
 
     logger.info("\n[PASS] Classification test passed!")
@@ -206,17 +206,17 @@ def test_supervised_learning_classification():
 
 
 def test_supervised_learning_regression():
-    """测试监督学习模块 - 回归任务"""
+    """Test supervised regression"""
     from ml.supervised_learning import train_supervised_model
 
     logger.info("\n" + "="*80)
     logger.info("Testing Supervised Learning - Regression")
     logger.info("="*80)
 
-    # 生成数据
+    # Generate data
     df = generate_regression_data(n_samples=500, n_features=15)
 
-    # 训练模型
+    # Train the model
     logger.info("\n1. Training Random Forest regressor...")
     model, results = train_supervised_model(
         data_df=df,
@@ -231,9 +231,9 @@ def test_supervised_learning_regression():
         random_state=42
     )
 
-    # 检查结果
+    # Check the results
     logger.info(f"[OK] Model trained successfully")
-    logger.info(f"[OK] R² Score: {results['metrics']['r2_score']:.4f}")
+    logger.info(f"[OK] R² score: {results['metrics']['r2_score']:.4f}")
     logger.info(f"[OK] RMSE: {results['metrics']['rmse']:.4f}")
     logger.info(f"[OK] MAE: {results['metrics']['mae']:.4f}")
 
@@ -242,17 +242,17 @@ def test_supervised_learning_regression():
 
 
 def test_supervised_learning_automl():
-    """测试监督学习模块 - AutoML功能"""
+    """Test automated model comparison"""
     from ml.supervised_learning import compare_models_automl
 
     logger.info("\n" + "="*80)
     logger.info("Testing Supervised Learning - AutoML")
     logger.info("="*80)
 
-    # 生成数据
+    # Generate data
     df = generate_classification_data(n_samples=300, n_features=10, n_classes=2)
 
-    # AutoML比较
+    # AutoML comparison
     logger.info("\n1. Comparing multiple models...")
     best_model, comparison_df, all_results = compare_models_automl(
         data_df=df,
@@ -265,7 +265,7 @@ def test_supervised_learning_automl():
         random_state=42
     )
 
-    # 检查结果
+    # Check the results
     logger.info(f"[OK] Compared {len(comparison_df)} models")
     logger.info(f"[OK] Best model: {comparison_df.iloc[0]['model']}")
     logger.info(f"[OK] Best accuracy: {comparison_df.iloc[0]['test_accuracy']:.4f}")
@@ -281,7 +281,7 @@ def test_supervised_learning_automl():
 # ============================================================================
 
 def test_virtual_screening():
-    """测试虚拟筛选模块"""
+    """Test the virtual screening module"""
     from ml.supervised_learning import train_supervised_model, save_model
     from ml.virtual_screening import screen_dataset, select_top_candidates
 
@@ -289,13 +289,13 @@ def test_virtual_screening():
     logger.info("Testing Virtual Screening")
     logger.info("="*80)
 
-    # 生成训练数据和筛选数据
+    # Generate training and screening data
     logger.info("\n1. Generating data...")
     train_df = generate_classification_data(n_samples=300, n_features=10, n_classes=2)
     screen_df = generate_classification_data(n_samples=200, n_features=10, n_classes=2)
-    screen_df = screen_df.drop('target', axis=1)  # 移除目标列
+    screen_df = screen_df.drop('target', axis=1)  # Remove the target column
 
-    # 训练模型
+    # Train the model
     logger.info("\n2. Training model...")
     model, results = train_supervised_model(
         data_df=train_df,
@@ -306,7 +306,7 @@ def test_virtual_screening():
         random_state=42
     )
 
-    # 保存模型
+    # Save the model
     model_path = Path(__file__).parent / 'test_model_screening.pkl'
     save_model(model, str(model_path),
                metadata=results['train_info'],
@@ -315,7 +315,7 @@ def test_virtual_screening():
                task_type=results['task_type'])
     logger.info(f"[OK] Model saved to {model_path}")
 
-    # 虚拟筛选
+    # Virtual screening
     logger.info("\n3. Screening dataset...")
     results_df, info = screen_dataset(
         model_path=str(model_path),
@@ -326,10 +326,10 @@ def test_virtual_screening():
     )
 
     logger.info(f"[OK] Screened {info['n_samples']} samples")
-    logger.info(f"[OK] {info['n_screened']} samples passed confidence threshold")
+    logger.info(f"[OK] {info['n_screened']} samples passed the confidence threshold")
     logger.info(f"[OK] Class distribution: {info.get('class_distribution', {})}")
 
-    # 选择顶部候选物
+    # Select the top candidates
     logger.info("\n4. Selecting top candidates...")
     top_candidates = select_top_candidates(
         results_df=results_df,
@@ -341,7 +341,7 @@ def test_virtual_screening():
     logger.info(f"[OK] Selected {len(top_candidates)} top candidates")
     logger.info(f"[OK] Average confidence: {top_candidates['confidence'].mean():.4f}")
 
-    # 清理
+    # Clean up
     model_path.unlink()
 
     logger.info("\n[PASS] Virtual screening test passed!")
@@ -353,21 +353,21 @@ def test_virtual_screening():
 # ============================================================================
 
 def test_active_learning():
-    """测试主动学习模块"""
+    """Test the active learning module"""
     from ml.active_learning import active_learning_workflow, uncertainty_sampling
 
     logger.info("\n" + "="*80)
     logger.info("Testing Active Learning")
     logger.info("="*80)
 
-    # 生成数据
+    # Generate data
     logger.info("\n1. Generating data...")
     df = generate_classification_data(n_samples=600, n_features=10, n_classes=2)
     X_train_initial, y_train_initial, X_pool, y_pool = split_data_for_active_learning(
         df, n_initial=50, n_pool=300, random_state=42
     )
 
-    # 主动学习工作流
+    # Active learning workflow
     logger.info("\n2. Running active learning workflow...")
     results = active_learning_workflow(
         X_train_initial=X_train_initial,
@@ -385,8 +385,8 @@ def test_active_learning():
     logger.info(f"[OK] Completed {results['n_iterations']} iterations")
     logger.info(f"[OK] Strategy: {results['strategy']}")
 
-    # 显示性能改进
-    logger.info("\n3. Performance improvement:")
+    # Display the change in performance
+    logger.info("\n3. Performance across iterations:")
     for metric in results['iteration_metrics']:
         logger.info(f"  Iteration {metric['iteration']}: "
                    f"train={metric['train_score']:.4f}, "
@@ -398,38 +398,38 @@ def test_active_learning():
 
     logger.info(f"\n[OK] Initial score: {initial_score:.4f}")
     logger.info(f"[OK] Final score: {final_score:.4f}")
-    logger.info(f"[OK] Improvement: {improvement:.4f}")
+    logger.info(f"[OK] Score change: {improvement:.4f}")
 
     logger.info("\n[PASS] Active learning test passed!")
     return True
 
 
 def test_bayesian_optimization():
-    """测试贝叶斯优化功能"""
+    """Test Bayesian optimization"""
     from ml.active_learning import bayesian_optimization_loop, fit_gaussian_process
 
     logger.info("\n" + "="*80)
     logger.info("Testing Bayesian Optimization")
     logger.info("="*80)
 
-    # 生成数据
+    # Generate data
     logger.info("\n1. Generating data...")
     df = generate_regression_data(n_samples=200, n_features=5)
     X_train_initial, y_train_initial, X_pool, y_pool = split_data_for_active_learning(
         df, n_initial=20, n_pool=100, random_state=42
     )
 
-    # 定义简单的目标函数（用于测试）
+    # Define a simple objective function for testing
     def objective_function(x):
-        return y_pool[0]  # 简化版本
+        return y_pool[0]  # Simplified implementation
 
-    # 贝叶斯优化
+    # Bayesian optimization
     logger.info("\n2. Running Bayesian optimization...")
     results = bayesian_optimization_loop(
-        objective_function=None,  # 使用监督学习模式
+        objective_function=None,  # Use supervised learning mode
         X_train_initial=X_train_initial,
         y_train_initial=y_train_initial,
-        X_pool=X_pool[:50],  # 使用较小的池
+        X_pool=X_pool[:50],  # Use a smaller candidate pool
         n_iterations=3,
         acquisition='ei',
         model_type='gp',
@@ -449,16 +449,16 @@ def test_bayesian_optimization():
 # ============================================================================
 
 def main():
-    """运行所有测试"""
+    """Run all tests"""
     logger.info("\n" + "="*80)
     logger.info("MACHINE LEARNING MODULES TEST SUITE")
     logger.info("="*80)
     logger.info(f"Testing supervised_learning, virtual_screening, and active_learning modules")
-    logger.info(f"Using simulated data for comprehensive testing\n")
+    logger.info(f"Using synthetic data for workflow checks\n")
 
     results = {}
 
-    # 测试监督学习
+    # Test supervised learning
     try:
         results['classification'] = test_supervised_learning_classification()
     except Exception as e:
@@ -477,14 +477,14 @@ def main():
         logger.error(f"[FAIL] AutoML test failed: {str(e)}")
         results['automl'] = False
 
-    # 测试虚拟筛选
+    # Test virtual screening
     try:
         results['virtual_screening'] = test_virtual_screening()
     except Exception as e:
         logger.error(f"[FAIL] Virtual screening test failed: {str(e)}")
         results['virtual_screening'] = False
 
-    # 测试主动学习
+    # Test active learning
     try:
         results['active_learning'] = test_active_learning()
     except Exception as e:
@@ -497,7 +497,7 @@ def main():
         logger.error(f"[FAIL] Bayesian optimization test failed: {str(e)}")
         results['bayesian_opt'] = False
 
-    # 总结
+    # Summary
     logger.info("\n" + "="*80)
     logger.info("TEST SUMMARY")
     logger.info("="*80)
@@ -512,10 +512,10 @@ def main():
     logger.info(f"\nTotal: {passed}/{total} tests passed")
 
     if passed == total:
-        logger.info("\n🎉 All tests passed successfully!")
+        logger.info("\n[SUCCESS] All tests passed successfully!")
         return 0
     else:
-        logger.warning(f"\n[WARNING]  {total - passed} test(s) failed")
+        logger.warning(f"\n[WARNING] {total - passed} test(s) failed")
         return 1
 
 

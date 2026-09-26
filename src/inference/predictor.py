@@ -1,7 +1,7 @@
 """
-模型推理模块
+Model inference utilities.
 
-提供加载预训练模型并进行预测的功能
+Provides pretrained model loading and prediction.
 """
 import torch
 import torch.nn as nn
@@ -18,9 +18,9 @@ logger = get_logger(__name__)
 
 class Predictor:
     """
-    预测器类
+    Segmentation predictor.
 
-    用于加载预训练模型并对新图像进行分割预测
+    Loads a pretrained model and predicts segmentation masks for new images.
     """
 
     def __init__(
@@ -32,18 +32,18 @@ class Predictor:
         bilinear: bool = True
     ):
         """
-        初始化预测器
+        Initialize the predictor.
 
         Args:
-            model_path: 预训练模型路径(.pth文件)
-            device: 运行设备 ("cuda" 或 "cpu")
-            n_channels: 输入图像通道数
-            n_classes: 输出类别数
-            bilinear: 是否使用双线性插值上采样
+            model_path: Path to pretrained model weights (.pth file).
+            device: Execution device ("cuda" or "cpu").
+            n_channels: Number of input image channels.
+            n_classes: Number of output classes.
+            bilinear: Use bilinear interpolation for upsampling.
         """
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
 
-        # 创建模型
+        # Create the model.
         self.model = UNet(
             n_channels=n_channels,
             n_classes=n_classes,
@@ -52,7 +52,7 @@ class Predictor:
         self.model.to(self.device)
         self.model.eval()
 
-        # 加载预训练权重
+        # Load pretrained weights.
         if model_path is not None:
             self.load_model(model_path)
             logger.info(f"Loaded pretrained model from {model_path}")
@@ -63,25 +63,25 @@ class Predictor:
 
     def load_model(self, model_path: str):
         """
-        加载预训练模型权重
+        Load pretrained model weights.
 
         Args:
-            model_path: 模型权重文件路径
+            model_path: Path to the model weights file.
         """
         model_path = Path(model_path)
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
-        # 加载权重
+        # Load weights.
         checkpoint = torch.load(model_path, map_location=self.device)
 
-        # 处理不同的保存格式
+        # Handle supported checkpoint formats.
         if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-            # 从训练检查点加载
+            # Load from a training checkpoint.
             self.model.load_state_dict(checkpoint['model_state_dict'])
             logger.info(f"Loaded model from checkpoint (epoch {checkpoint.get('epoch', 'unknown')})")
         else:
-            # 直接加载state_dict
+            # Load a state_dict directly.
             self.model.load_state_dict(checkpoint)
             logger.info("Loaded model state dict")
 
@@ -93,32 +93,32 @@ class Predictor:
         target_size: Optional[Tuple[int, int]] = None
     ) -> torch.Tensor:
         """
-        预处理图像
+        Preprocess the image.
 
         Args:
-            image: 输入图像 (H, W, C) 或 (H, W)
-            target_size: 目标尺寸 (height, width)，如果为None则保持原尺寸
+            image: Input image (H, W, C) or (H, W).
+            target_size: Target dimensions (height, width); None preserves the original size.
 
         Returns:
-            预处理后的张量 (1, C, H, W)
+            Preprocessed tensor (1, C, H, W).
         """
-        # 调整大小
+        # Resize.
         if target_size is not None:
             image = cv2.resize(image, (target_size[1], target_size[0]))
 
-        # 归一化到[0, 1]
+        # Normalize to [0, 1].
         if image.dtype == np.uint8:
             image = image.astype(np.float32) / 255.0
 
-        # 转换维度顺序
+        # Reorder dimensions.
         if image.ndim == 2:
-            # 灰度图 (H, W) -> (1, H, W)
+            # Grayscale: (H, W) -> (1, H, W).
             image = np.expand_dims(image, axis=0)
         elif image.ndim == 3:
-            # 彩色图 (H, W, C) -> (C, H, W)
+            # Color: (H, W, C) -> (C, H, W).
             image = np.transpose(image, (2, 0, 1))
 
-        # 添加batch维度并转换为tensor
+        # Add a batch dimension and convert to a tensor.
         image = torch.from_numpy(image.copy()).float()
         image = image.unsqueeze(0)  # (C, H, W) -> (1, C, H, W)
 
@@ -131,24 +131,24 @@ class Predictor:
         original_size: Optional[Tuple[int, int]] = None
     ) -> np.ndarray:
         """
-        后处理模型输出
+        Postprocess the model output.
 
         Args:
-            output: 模型输出张量 (1, C, H, W)
-            threshold: 二值化阈值
-            original_size: 原始图像尺寸 (height, width)，如果提供则调整回原尺寸
+            output: Model output tensor (1, C, H, W).
+            threshold: Binarization threshold.
+            original_size: Original dimensions (height, width); resize back when provided.
 
         Returns:
-            二值化掩码 (H, W)
+            Binary mask (H, W).
         """
-        # 应用sigmoid并转换为numpy
+        # Apply sigmoid and convert to NumPy.
         output = torch.sigmoid(output)
         mask = output.squeeze().cpu().numpy()  # (H, W)
 
-        # 二值化
+        # Binarize.
         mask = (mask > threshold).astype(np.uint8) * 255
 
-        # 调整回原尺寸
+        # Resize back to the original dimensions.
         if original_size is not None:
             mask = cv2.resize(mask, (original_size[1], original_size[0]))
 
@@ -162,28 +162,28 @@ class Predictor:
         return_original_size: bool = True
     ) -> np.ndarray:
         """
-        对单张图像进行分割预测
+        Predict a segmentation mask for one image.
 
         Args:
-            image: 输入图像 (H, W, C) 或 (H, W)
-            target_size: 模型输入尺寸 (height, width)
-            threshold: 二值化阈值
-            return_original_size: 是否将结果调整回原始尺寸
+            image: Input image (H, W, C) or (H, W).
+            target_size: Model input dimensions (height, width).
+            threshold: Binarization threshold.
+            return_original_size: Resize the result to the original image dimensions.
 
         Returns:
-            预测的二值化掩码 (H, W)
+            Predicted binary mask (H, W).
         """
         original_size = image.shape[:2] if return_original_size else None
 
-        # 预处理
+        # Preprocessing.
         input_tensor = self.preprocess(image, target_size)
         input_tensor = input_tensor.to(self.device)
 
-        # 推理
+        # Inference.
         with torch.no_grad():
             output = self.model(input_tensor)
 
-        # 后处理
+        # Postprocessing.
         mask = self.postprocess(output, threshold, original_size)
 
         return mask

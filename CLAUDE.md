@@ -1,217 +1,67 @@
-# ⚠️ 重要：环境配置说明
+# Development Notes
 
-## 🚨 强制要求
+Start with the [README](README.md), [installation guide](installation.md), and [contributing guide](CONTRIBUTING.md) for environment setup, entry points, and validation.
 
-**本项目必须在 `cellpose_gpu` 虚拟环境下运行！**
+## Isolated environment
 
-**绝对不要在 base 环境下运行！**
-
----
-
-## ✅ RTX 5070 GPU 完全支持 (已解决)
-
-**好消息：RTX 5070 GPU 现已完全支持！**
-
-- ✅ **解决方案**：PyTorch 2.10.0+cu128 已支持 RTX 5070 (sm_120 计算能力)
-- ✅ **CUDA版本**：需要 CUDA 12.8 支持
-- ✅ **状态**：GPU加速已完全启用，性能显著提升
-- ✅ **验证**：已通过完整的GPU功能测试
-
-**当前状态：RTX 5070 GPU 已完全配置并可用于 Cellpose 加速处理。**
-
----
-
-## 为什么必须使用 cellpose_gpu 环境？
-
-1. **Python版本兼容性**
-   - base环境使用Python 3.13
-   - PyTorch GPU版本需要Python 3.12
-   - cellpose_gpu环境使用Python 3.12
-
-2. **GPU加速支持**
-   - cellpose_gpu环境安装了PyTorch GPU版本
-   - 支持CUDA 12.1，可以使用RTX 5070 GPU
-   - Cellpose深度学习模型需要GPU加速（否则极慢）
-
-3. **依赖隔离**
-   - 避免污染base环境
-   - 避免包版本冲突
-   - 便于管理和维护
-
----
-
-## 📋 环境创建步骤（首次使用）
-
-如果还没有创建 `cellpose_gpu` 环境，请按以下步骤操作：
+Package metadata requires Python 3.10 or newer; Python 3.12 is the recommended starting point. Use a dedicated environment and run commands from the repository root.
 
 ```bash
-# 1. 创建环境（Python 3.12）
-mamba create -n cellpose_gpu python=3.12 -y
-
-# 2. 激活环境
-conda activate cellpose_gpu
-
-# 3. 安装PyTorch GPU版本 (CUDA 12.8 for RTX 5070 support)
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
-
-# 4. 安装项目依赖
-pip install cellpose segment-anything streamlit loguru opencv-python scikit-image pandas openpyxl
-
-# 5. 验证GPU可用
-python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
-
-# 6. 运行完整GPU测试（推荐）
-python test_gpu_cellpose.py
-```
-
----
-
-## 🚀 每次运行项目前的步骤
-
-### 1. 激活环境
-
-```bash
-conda activate cellpose_gpu
-```
-
-### 2. 进入项目目录
-
-```bash
-cd c:\Users\XB001\Desktop\cc_works\xibaofenge
-```
-
-### 3. 运行项目
-
-```bash
-# 运行Streamlit应用
-streamlit run app_enhanced.py
-
-# 或运行性能测试
-python test_parallel_performance.py
-```
-
----
-
-## ✅ 检查当前环境
-
-运行以下命令检查是否在正确的环境中：
-
-```bash
-# 查看当前环境
-conda env list
-
-# 查看Python版本（应该是3.12）
+source .venv/bin/activate
 python --version
-
-# 查看PyTorch和CUDA状态
-python -c "import torch; print('PyTorch:', torch.__version__); print('CUDA:', torch.cuda.is_available())"
+python -m pip check
+python -m streamlit run app_enhanced.py
 ```
 
-**正确的输出应该是：**
-- Python版本：3.12.x
-- PyTorch版本：2.10.0+cu128 或更高版本
-- CUDA available: True
-- GPU名称：NVIDIA GeForce RTX 5070
+On Windows PowerShell, activate `.venv` with `.\.venv\Scripts\Activate.ps1`. A Conda environment is also suitable; no particular main-environment name is required. The Windows launcher, `start-app.bat`, uses `.venv\Scripts\python.exe` when present and otherwise uses `python` from the current PATH.
 
----
+## Runtime architecture
 
-## ❌ 常见错误
+- `app_enhanced.py` is the main Streamlit application.
+- `app.py` provides the optional Gradio interface; `app_streamlit.py` provides a minimal Streamlit interface.
+- `src/api/segmentation.py` exposes `CellSegmenter` and `SegmentationMethod`.
+- Cellpose and the SAM wrapper run in the application environment.
+- The legacy `CELLSAM` API identifier refers to Meta SAM automatic mask generation. It does not identify an integration of the separate, cell-trained CellSAM model.
+- CellViT runs through `src/core/segmentation/cellvit_worker.py` in the repository-local `env_cellvit` environment. The parent application remains in its main environment.
+- SAM checkpoints belong in `models/sam/`; do not commit downloaded weights or virtual environments.
+- `pyproject.toml` holds package metadata and tool configuration; `setup.py` is a compatibility entry point.
 
-### 错误1：在base环境运行
+## GPU diagnostics
 
-```
-❌ 错误：(base) C:\Users\XB001>streamlit run app_enhanced.py
-```
-
-**解决方法：**
-```bash
-conda activate cellpose_gpu
-```
-
-### 错误2：CUDA不可用
-
-```
-❌ 错误：CUDA available: False
-```
-
-**原因：**
-- 可能在base环境（Python 3.13）
-- 或者安装了CPU版本的PyTorch
-
-**解决方法：**
-1. 确认在cellpose_gpu环境
-2. 重新安装PyTorch GPU版本
-
-### 错误3：Cellpose运行极慢
-
-**原因：**
-- GPU未启用
-- 在CPU模式下运行
-
-**解决方法：**
-1. 检查CUDA是否可用
-2. 确认在cellpose_gpu环境
-3. 在应用中启用GPU选项
-
----
-
-## 📝 快速参考
-
-| 操作 | 命令 |
-|------|------|
-| 激活环境 | `conda activate cellpose_gpu` |
-| 退出环境 | `conda deactivate` |
-| 查看环境列表 | `conda env list` |
-| 查看已安装包 | `conda list` 或 `pip list` |
-| 运行应用 | `streamlit run app_enhanced.py` |
-
----
-
-## 🔧 环境管理
-
-### 删除环境（如需重建）
+Inspect the installed PyTorch build and detected device before enabling GPU inference:
 
 ```bash
-conda deactivate
-mamba env remove -n cellpose_gpu
+python -c "import torch; print('PyTorch:', torch.__version__); print('CUDA build:', torch.version.cuda); print('CUDA available:', torch.cuda.is_available())"
 ```
 
-### 导出环境配置
+CUDA requires a compatible NVIDIA GPU, driver, and PyTorch build. `CUDA available: False` is expected on a Mac. The current SAM and CellViT wrappers select CPU or CUDA; they do not select Apple MPS.
+
+`python test_gpu_cellpose.py` is an optional local diagnostic. Read the detected device and any exceptions; a completed synthetic-image check is not an accuracy evaluation or a general performance benchmark. See [installation troubleshooting](installation.md#troubleshooting).
+
+## Validation
+
+Install development dependencies before running the default suite:
 
 ```bash
-conda activate cellpose_gpu
-conda env export > environment.yml
+python -m pip install -r requirements-dev.txt
+python -m pytest
 ```
 
-### 从配置文件创建环境
+For focused checks:
 
 ```bash
-mamba env create -f environment.yml
+python -m pytest tests/test_segmentation.py tests/test_metrics.py tests/test_losses.py
+python test_dst_fusion.py
 ```
 
----
+Default pytest discovery covers `tests/`. Root-level demonstrations and diagnostics can require local images, additional packages, model weights, or a GPU; inspect their inputs before running them. In particular, configure the image directory in `test_matching_performance.py` for your machine before using that benchmark.
 
-## 💡 提示
+Performance measurements should preserve the dataset, hardware, software versions, model parameters, and measurement protocol. Report untested backends or platforms explicitly.
 
-1. **每次打开新终端都要激活环境**
-2. **看到 `(cellpose_gpu)` 前缀才是正确的**
-3. **GPU加速可以让Cellpose快10-50倍**
-4. **遇到问题先检查环境是否正确**
+## Environment records
 
----
+Use `python -m pip list` and `python -m pip check` to inspect the active environment. Save new dependency snapshots with clear platform and version information. Review changes before replacing an existing export. The repository's Windows/CUDA snapshots are platform-specific records; see [installation.md](installation.md#development-environment-snapshots).
 
-## 📞 问题排查
+## Documentation conventions
 
-如果遇到问题，按以下顺序检查：
-
-1. ✅ 是否激活了cellpose_gpu环境？
-2. ✅ Python版本是否为3.12？
-3. ✅ PyTorch是否为GPU版本（+cu121）？
-4. ✅ CUDA是否可用（torch.cuda.is_available()）？
-5. ✅ 所有依赖是否已安装？
-
----
-
-**最后提醒：永远不要在base环境运行本项目！**
-
-**Always activate `cellpose_gpu` before running anything!**
+Keep public prose and examples in English. Preserve established Python identifiers and serialized keys unless an API migration is intentional. Distinguish implemented behavior, verified results, and proposed features. Keep entry points and dependency guidance aligned with `pyproject.toml`, [architecture.md](docs/architecture.md), and the [development roadmap](docs/roadmap.md).

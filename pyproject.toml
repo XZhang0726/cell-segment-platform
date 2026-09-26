@@ -1,34 +1,46 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "xibaofenge"
+name = "cell-segment-platform"
 version = "0.1.0"
-description = "自动化细胞分割平台"
+description = "Microscopy image segmentation, cell morphology, and machine learning workflows"
 readme = "README.md"
-requires-python = ">=3.8"
-license = {text = "MIT"}
-authors = [
-    {name = "Your Name", email = "your.email@example.com"}
-]
-keywords = ["cell segmentation", "image processing", "deep learning", "biomedical"]
+requires-python = ">=3.10"
+authors = [{name = "XZhang0726"}]
+dynamic = ["dependencies"]
+keywords = ["cell-segmentation", "microscopy", "image-analysis", "morphology", "machine-learning"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Programming Language :: Python :: 3",
 ]
 
+[project.optional-dependencies]
+gradio = ["gradio>=4.0"]
+
 [project.urls]
-Homepage = "https://github.com/yourusername/xibaofenge"
-Documentation = "https://xibaofenge.readthedocs.io"
-Repository = "https://github.com/yourusername/xibaofenge"
-Issues = "https://github.com/yourusername/xibaofenge/issues"
+Homepage = "https://github.com/XZhang0726/cell-segment-platform"
+Documentation = "https://github.com/XZhang0726/cell-segment-platform/blob/main/docs/index.md"
+Repository = "https://github.com/XZhang0726/cell-segment-platform"
+Issues = "https://github.com/XZhang0726/cell-segment-platform/issues"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "locales*"]
+
+[tool.setuptools.package-data]
+locales = ["en_US.json"]
 
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311']
+target-version = ['py310', 'py311', 'py312']
 include = '\.pyi?$'
 
 [tool.pylint.messages_control]
@@ -43,7 +55,7 @@ python_functions = ["test_*"]
 addopts = "-v --cov=src --cov-report=html --cov-report=term"
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

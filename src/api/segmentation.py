@@ -1,7 +1,7 @@
 """
-统一的细胞分割接口
+Unified cell segmentation interface.
 
-整合传统图像处理方法和深度学习方法
+Combines classical image processing and deep learning methods.
 """
 import numpy as np
 from pathlib import Path
@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 
 class SegmentationMethod(Enum):
-    """分割方法枚举"""
+    """Supported segmentation methods."""
     OTSU = "otsu"
     ADAPTIVE = "adaptive"
     WATERSHED = "watershed"
@@ -34,9 +34,9 @@ class SegmentationMethod(Enum):
 
 class CellSegmenter:
     """
-    统一的细胞分割器
+    Unified cell segmenter.
 
-    提供传统方法和深度学习方法的统一接口
+    Provides a common interface for classical and deep learning methods.
     """
 
     def __init__(
@@ -46,12 +46,12 @@ class CellSegmenter:
         device: str = "cuda"
     ):
         """
-        初始化分割器
+        Initialize the segmenter.
 
         Args:
-            method: 分割方法 ("otsu", "adaptive", "watershed", "edge_canny", "deep_learning")
-            model_path: 预训练模型路径（仅用于deep_learning方法）
-            device: 运行设备（仅用于deep_learning方法）
+            method: Segmentation method ("otsu", "adaptive", "watershed", "edge_canny", "deep_learning").
+            model_path: Pretrained model path, used only by deep_learning.
+            device: Execution device, used only by deep_learning.
         """
         if isinstance(method, str):
             method = SegmentationMethod(method)
@@ -60,12 +60,12 @@ class CellSegmenter:
         self.model_path = model_path
         self.device = device
 
-        # 初始化传统方法处理器
+        # Initialize classical segmentation handlers.
         self.threshold_seg = ThresholdSegmentation()
         self.watershed_seg = WatershedSegmentation()
         self.edge_detector = EdgeDetection()
 
-        # 初始化深度学习预测器（如果需要）
+        # Initialize the deep learning predictor when needed.
         self.predictor = None
         if self.method == SegmentationMethod.DEEP_LEARNING:
             if model_path is None:
@@ -77,7 +77,7 @@ class CellSegmenter:
         logger.info(f"CellSegmenter initialized with method: {self.method.value}")
 
     def _to_grayscale(self, image: np.ndarray) -> np.ndarray:
-        """将图像转换为灰度图"""
+        """Convert an image to grayscale."""
         import cv2
         if image.ndim == 3:
             return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -89,14 +89,14 @@ class CellSegmenter:
         **kwargs
     ) -> np.ndarray:
         """
-        对图像进行分割
+        Segment an image.
 
         Args:
-            image: 输入图像 (H, W, C) 或 (H, W)
-            **kwargs: 方法特定的参数
+            image: Input image (H, W, C) or (H, W).
+            **kwargs: Method-specific parameters.
 
         Returns:
-            分割掩码 (H, W)
+            Segmentation mask (H, W).
         """
         if self.method == SegmentationMethod.OTSU:
             return self._segment_otsu(image, **kwargs)
@@ -118,35 +118,35 @@ class CellSegmenter:
             raise ValueError(f"Unknown segmentation method: {self.method}")
 
     def _segment_otsu(self, image: np.ndarray, **kwargs) -> np.ndarray:
-        """使用Otsu阈值分割"""
+        """Segment using Otsu thresholding."""
         gray = self._to_grayscale(image)
         return self.threshold_seg.otsu_threshold(gray)
 
     def _segment_adaptive(self, image: np.ndarray, **kwargs) -> np.ndarray:
-        """使用自适应阈值分割"""
+        """Segment using adaptive thresholding."""
         gray = self._to_grayscale(image)
         block_size = kwargs.get('block_size', 11)
         C = kwargs.get('C', 2)
         return self.threshold_seg.adaptive_threshold(gray, block_size=block_size, C=C)
 
     def _segment_watershed(self, image: np.ndarray, **kwargs) -> np.ndarray:
-        """使用分水岭算法分割"""
-        # 转换为灰度图
+        """Segment using watershed segmentation."""
+        # Convert to grayscale.
         gray = self._to_grayscale(image)
-        # 二值化
+        # Binarize.
         binary = self.threshold_seg.otsu_threshold(gray)
-        # 应用分水岭算法
+        # Apply watershed segmentation.
         return self.watershed_seg.watershed_distance_transform(binary)
 
     def _segment_edge(self, image: np.ndarray, **kwargs) -> np.ndarray:
-        """使用边缘检测分割"""
+        """Segment using edge detection."""
         gray = self._to_grayscale(image)
         low_threshold = kwargs.get('low_threshold', 50)
         high_threshold = kwargs.get('high_threshold', 150)
         return self.edge_detector.canny(gray, threshold1=low_threshold, threshold2=high_threshold)
 
     def _segment_deep_learning(self, image: np.ndarray, **kwargs) -> np.ndarray:
-        """使用深度学习模型分割"""
+        """Segment using a deep learning model."""
         if self.predictor is None:
             raise RuntimeError("Deep learning predictor not initialized. "
                              "Please provide model_path when creating CellSegmenter.")
@@ -163,7 +163,7 @@ class CellSegmenter:
         )
 
     def _segment_cellpose(self, image: np.ndarray, **kwargs) -> np.ndarray:
-        """使用Cellpose深度学习模型分割"""
+        """Segment using a Cellpose model."""
         model_type = kwargs.get('model_type', 'cyto2')
         diameter = kwargs.get('diameter', None)
         channels = kwargs.get('channels', None)
@@ -180,7 +180,7 @@ class CellSegmenter:
         )
 
     def _segment_cellvit(self, image: np.ndarray, **kwargs) -> np.ndarray:
-        """使用CellViT深度学习模型分割"""
+        """Segment using a CellViT model."""
         model_type = kwargs.get('model_type', 'CellViT-256')
         use_gpu = kwargs.get('use_gpu', False)
         target_size = kwargs.get('target_size', 256)
@@ -195,7 +195,7 @@ class CellSegmenter:
         )
 
     def _segment_cellsam(self, image: np.ndarray, **kwargs) -> np.ndarray:
-        """使用CellSAM深度学习模型分割"""
+        """Generate masks using SAM through the legacy cellsam interface."""
         model_type = kwargs.get('model_type', 'vit_b')
         use_gpu = kwargs.get('use_gpu', False)
         points_per_side = kwargs.get('points_per_side', 32)

@@ -1,7 +1,7 @@
 """
-置信度工具模块
+Confidence utilities.
 
-为没有置信度输出的分割模型生成合成置信度图
+Generate synthetic confidence maps for models that do not provide confidence scores.
 """
 import numpy as np
 from scipy.ndimage import distance_transform_edt
@@ -15,45 +15,45 @@ def generate_confidence_from_mask(mask: np.ndarray,
                                   base_confidence: float = 0.8,
                                   boundary_penalty: float = 0.3) -> np.ndarray:
     """
-    从分割掩码生成合成置信度图
+    Generate a synthetic confidence map from a segmentation mask.
 
-    策略：基于距离变换，边界附近置信度低，中心区域置信度高
-    这模拟了真实模型的行为：边界区域更不确定
+    Use the distance transform to assign lower confidence near boundaries and higher confidence at centers.
+    This heuristic represents the greater uncertainty often found at object boundaries.
 
     Args:
-        mask: 标签掩码 (H, W)，值为实例ID
-        base_confidence: 基础置信度 [0,1]
-        boundary_penalty: 边界惩罚系数 [0,1]
+        mask: Labeled mask (H, W) containing instance IDs.
+        base_confidence: Base confidence in the range [0, 1].
+        boundary_penalty: Boundary penalty coefficient in the range [0, 1].
 
     Returns:
-        置信度图 (H, W)，值范围 [0,1]
+        Confidence map (H, W) in the range [0, 1].
     """
     H, W = mask.shape
     confidence_map = np.zeros((H, W), dtype=np.float32)
 
-    # 获取所有实例ID
+    # Get all instance IDs.
     instance_ids = np.unique(mask)
-    instance_ids = instance_ids[instance_ids > 0]  # 排除背景
+    instance_ids = instance_ids[instance_ids > 0]  # Exclude the background.
 
     for inst_id in instance_ids:
-        # 提取该实例的二值掩码
+        # Extract this instance's binary mask.
         binary_mask = (mask == inst_id).astype(np.uint8)
 
-        # 计算距离变换（到边界的距离）
+        # Compute the distance transform, measuring distance to the boundary.
         distance = distance_transform_edt(binary_mask)
 
-        # 归一化距离到 [0, 1]
+        # Normalize distances to [0, 1].
         if distance.max() > 0:
             normalized_distance = distance / distance.max()
         else:
             normalized_distance = np.zeros_like(distance)
 
-        # 计算置信度：中心高，边界低
+        # Assign higher confidence at the center and lower confidence near the boundary.
         # confidence = base - penalty * (1 - normalized_distance)
         instance_confidence = base_confidence - boundary_penalty * (1 - normalized_distance)
         instance_confidence = np.clip(instance_confidence, 0.0, 1.0)
 
-        # 写入置信度图
+        # Write to the confidence map.
         confidence_map[binary_mask > 0] = instance_confidence[binary_mask > 0]
 
     return confidence_map
@@ -63,30 +63,30 @@ def generate_confidence_maps(masks_list: List[np.ndarray],
                             model_names: List[str],
                             model_reliabilities: dict) -> List[np.ndarray]:
     """
-    为多个模型生成置信度图
+    Generate confidence maps for multiple models.
 
-    根据模型可靠性调整基础置信度：
-    - 高可靠性模型（如CellViT）→ 高基础置信度
-    - 低可靠性模型（如传统方法）→ 低基础置信度
+    Adjust base confidence according to the configured model reliability:
+    - Models assigned higher reliability receive higher base confidence.
+    - Models assigned lower reliability receive lower base confidence.
 
     Args:
-        masks_list: 掩码列表
-        model_names: 模型名称列表
-        model_reliabilities: 模型可靠性字典
+        masks_list: List of masks.
+        model_names: List of model names.
+        model_reliabilities: Dictionary of model reliability values.
 
     Returns:
-        置信度图列表
+        List of confidence maps.
     """
-    logger.info(f"生成 {len(masks_list)} 个模型的合成置信度图...")
+    logger.info(f"Generating synthetic confidence maps for {len(masks_list)} models...")
 
     confidences_list = []
 
     for mask, model_name in zip(masks_list, model_names):
-        # 根据模型可靠性调整基础置信度
+        # Adjust base confidence according to model reliability.
         reliability = model_reliabilities.get(model_name, 0.8)
-        base_confidence = reliability * 0.9  # 略低于可靠性
+        base_confidence = reliability * 0.9  # Set confidence slightly below reliability.
 
-        # 生成置信度图
+        # Generate the confidence map.
         confidence_map = generate_confidence_from_mask(
             mask,
             base_confidence=base_confidence,
@@ -98,6 +98,6 @@ def generate_confidence_maps(masks_list: List[np.ndarray],
         logger.debug(f"  {model_name}: base_confidence={base_confidence:.2f}, "
                     f"mean={np.mean(confidence_map[mask > 0]):.3f}")
 
-    logger.info("置信度图生成完成")
+    logger.info("Confidence maps generated")
 
     return confidences_list

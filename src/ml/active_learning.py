@@ -1,15 +1,15 @@
 """
-主动学习模块
+Active learning utilities.
 
-实现多种主动学习策略和贝叶斯优化，用于智能样本选择和模型优化
-支持不确定性采样、委员会查询和贝叶斯优化等方法
+Provides active learning strategies and Bayesian optimization for sample selection.
+Includes uncertainty sampling, query by committee, and Bayesian optimization workflows.
 
-主要功能：
-1. 不确定性采样策略（最小置信度、边界、熵）
-2. 委员会查询方法
-3. 贝叶斯优化循环
-4. 主动学习工作流
-5. 精美的不确定性可视化
+Main capabilities:
+1. Uncertainty sampling: least confidence, margin, and entropy.
+2. Query by committee.
+3. Bayesian optimization loop.
+4. Active learning workflow.
+5. Uncertainty visualizations.
 """
 
 import numpy as np
@@ -46,53 +46,53 @@ def uncertainty_sampling(
     method: str = 'least_confident'
 ) -> np.ndarray:
     """
-    基于不确定性的采样策略
+    Select samples using predictive uncertainty.
 
-    选择模型预测最不确定的样本进行标注
+    Choose samples for annotation where the model is most uncertain.
 
     Args:
-        model: 训练好的分类模型（需要支持predict_proba）
-        X_pool: 未标注样本池
-        n_samples: 要选择的样本数量
-        method: 不确定性度量方法
-            - 'least_confident': 最小置信度（1 - max(p)）
-            - 'margin': 边界采样（最大概率 - 第二大概率）
-            - 'entropy': 熵采样（信息熵）
+        model: Trained classifier supporting predict_proba.
+        X_pool: Pool of unlabeled samples.
+        n_samples: Number of samples to select.
+        method: Uncertainty measure.
+            - 'least_confident': One minus the largest predicted probability.
+            - 'margin': Difference between the two largest predicted probabilities.
+            - 'entropy': Predictive information entropy.
 
     Returns:
-        selected_indices: 选中样本的索引数组
+        selected_indices: Array of selected sample indices.
     """
     if not hasattr(model, 'predict_proba'):
         logger.error("Model does not support predict_proba, cannot use uncertainty sampling")
         raise ValueError("Model must support predict_proba for uncertainty sampling")
 
-    # 获取预测概率
+    # Get predicted probabilities.
     probabilities = model.predict_proba(X_pool)
 
-    # 计算不确定性分数
+    # Compute uncertainty scores.
     if method == 'least_confident':
-        # 最小置信度：1 - max(p)
+        # Least confidence: 1 - max(p).
         uncertainty_scores = 1 - np.max(probabilities, axis=1)
 
     elif method == 'margin':
-        # 边界采样：最大概率 - 第二大概率（越小越不确定）
+        # Margin: largest minus second-largest probability; smaller margins indicate greater uncertainty.
         if probabilities.shape[1] < 2:
             logger.warning("Only one class, using least_confident method instead")
             uncertainty_scores = 1 - np.max(probabilities, axis=1)
         else:
-            # 对每行排序，取最大和第二大
+            # Sort each row to extract the two largest probabilities.
             sorted_probs = np.sort(probabilities, axis=1)
             margin = sorted_probs[:, -1] - sorted_probs[:, -2]
-            uncertainty_scores = -margin  # 负号使得margin越小，分数越高
+            uncertainty_scores = -margin  # Negate the margin so smaller margins receive higher scores.
 
     elif method == 'entropy':
-        # 熵采样：信息熵越大越不确定
+        # Higher predictive entropy indicates greater uncertainty.
         uncertainty_scores = entropy(probabilities.T)
 
     else:
         raise ValueError(f"Unknown uncertainty method: {method}")
 
-    # 选择不确定性最高的样本
+    # Select samples with the highest uncertainty.
     selected_indices = np.argsort(uncertainty_scores)[-n_samples:][::-1]
 
     logger.info(f"Selected {len(selected_indices)} samples using {method} uncertainty sampling")
@@ -108,56 +108,56 @@ def query_by_committee(
     disagreement: str = 'vote_entropy'
 ) -> np.ndarray:
     """
-    委员会查询方法
+    Select samples using query by committee.
 
-    训练多个模型组成委员会，选择委员会分歧最大的样本
+    Use predictions from a committee of trained models to select samples with the greatest disagreement.
 
     Args:
-        models: 模型列表（委员会成员）
-        X_pool: 未标注样本池
-        n_samples: 要选择的样本数量
-        disagreement: 分歧度量方法
-            - 'vote_entropy': 投票熵（分类）
-            - 'variance': 预测方差（回归）
+        models: List of trained committee members.
+        X_pool: Pool of unlabeled samples.
+        n_samples: Number of samples to select.
+        disagreement: Disagreement measure.
+            - 'vote_entropy': Entropy of class votes for classification.
+            - 'variance': Variance of predictions for regression.
 
     Returns:
-        selected_indices: 选中样本的索引数组
+        selected_indices: Array of selected sample indices.
     """
     if len(models) < 2:
         logger.error("Need at least 2 models for query by committee")
         raise ValueError("Need at least 2 models for committee")
 
-    # 检查是否为分类任务
+    # Check whether this is a classification task.
     is_classification = hasattr(models[0], 'predict_proba')
 
     if disagreement == 'vote_entropy' and is_classification:
-        # 获取所有模型的预测
+        # Collect predictions from all models.
         all_predictions = np.array([model.predict(X_pool) for model in models])
 
-        # 计算投票熵
+        # Compute vote entropy.
         disagreement_scores = []
         for i in range(X_pool.shape[0]):
             votes = all_predictions[:, i]
-            # 计算每个类别的投票比例
+            # Compute the fraction of votes for each class.
             unique, counts = np.unique(votes, return_counts=True)
             vote_probs = counts / len(models)
-            # 计算熵
+            # Compute entropy.
             vote_entropy = entropy(vote_probs)
             disagreement_scores.append(vote_entropy)
 
         disagreement_scores = np.array(disagreement_scores)
 
     elif disagreement == 'variance':
-        # 获取所有模型的预测
+        # Collect predictions from all models.
         all_predictions = np.array([model.predict(X_pool) for model in models])
 
-        # 计算预测方差
+        # Compute prediction variance.
         disagreement_scores = np.var(all_predictions, axis=0)
 
     else:
         raise ValueError(f"Unknown disagreement method: {disagreement}")
 
-    # 选择分歧最大的样本
+    # Select samples with the greatest disagreement.
     selected_indices = np.argsort(disagreement_scores)[-n_samples:][::-1]
 
     logger.info(f"Selected {len(selected_indices)} samples using query by committee ({disagreement})")
@@ -173,33 +173,33 @@ def expected_improvement_sampling(
     n_samples: int = 10
 ) -> np.ndarray:
     """
-    期望改进采样
+    Select samples using a heuristic proxy for expected improvement.
 
-    选择预期能带来最大性能提升的样本
+    Rank samples by uncertainty or prediction discrepancy as a proxy for potential improvement.
 
     Args:
-        model: 训练好的模型
-        X_pool: 未标注样本池
-        y_pool_estimated: 样本池的估计目标值（用于计算期望改进）
-        n_samples: 要选择的样本数量
+        model: Trained model.
+        X_pool: Pool of unlabeled samples.
+        y_pool_estimated: Estimated pool targets used by the regression discrepancy heuristic.
+        n_samples: Number of samples to select.
 
     Returns:
-        selected_indices: 选中样本的索引数组
+        selected_indices: Array of selected sample indices.
     """
-    # 获取预测
+    # Get predictions.
     predictions = model.predict(X_pool)
 
-    # 计算期望改进（简化版本：基于预测值与估计值的差异）
+    # Estimate improvement using uncertainty or discrepancies from estimated targets.
     if hasattr(model, 'predict_proba'):
-        # 分类任务：使用不确定性作为期望改进的代理
+        # For classification, use uncertainty as a proxy for expected improvement.
         probabilities = model.predict_proba(X_pool)
         uncertainty = 1 - np.max(probabilities, axis=1)
         expected_improvement = uncertainty
     else:
-        # 回归任务：使用预测值与估计值的绝对差异
+        # For regression, use the absolute difference between predictions and estimated targets.
         expected_improvement = np.abs(predictions - y_pool_estimated)
 
-    # 选择期望改进最大的样本
+    # Select samples with the highest improvement proxy scores.
     selected_indices = np.argsort(expected_improvement)[-n_samples:][::-1]
 
     logger.info(f"Selected {len(selected_indices)} samples using expected improvement sampling")
@@ -218,21 +218,21 @@ def fit_gaussian_process(
     kernel: Optional[Any] = None
 ) -> Any:
     """
-    拟合高斯过程用于不确定性估计
+    Fit a Gaussian process for uncertainty estimation.
 
     Args:
-        X_train: 训练特征
-        y_train: 训练标签
-        kernel: 核函数（如果为None，使用默认RBF核）
+        X_train: Training features.
+        y_train: Training targets.
+        kernel: Covariance kernel; None uses a constant kernel multiplied by an RBF kernel.
 
     Returns:
-        gp_model: 拟合好的高斯过程模型
+        gp_model: Fitted Gaussian process model.
     """
     from sklearn.gaussian_process import GaussianProcessRegressor
     from sklearn.gaussian_process.kernels import RBF, ConstantKernel
 
     if kernel is None:
-        # 默认核：常数核 * RBF核
+        # Default kernel: constant kernel * RBF kernel.
         kernel = ConstantKernel(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2))
 
     gp_model = GaussianProcessRegressor(
@@ -257,51 +257,51 @@ def compute_acquisition_function(
     kappa: float = 1.96
 ) -> np.ndarray:
     """
-    计算采集函数值
+    Compute acquisition function values.
 
     Args:
-        model: 高斯过程模型或支持预测不确定性的模型
-        X_pool: 候选样本池
-        acquisition: 采集函数类型
-            - 'ei': Expected Improvement (期望改进)
-            - 'ucb': Upper Confidence Bound (上置信界)
-            - 'pi': Probability of Improvement (改进概率)
-        xi: EI和PI的探索参数
-        kappa: UCB的探索参数
+        model: Gaussian process or another model supporting predictive uncertainty.
+        X_pool: Candidate sample pool.
+        acquisition: Acquisition function type.
+            - 'ei': Expected improvement.
+            - 'ucb': Upper confidence bound.
+            - 'pi': Probability of improvement.
+        xi: Exploration parameter for EI and PI.
+        kappa: Exploration parameter for UCB.
 
     Returns:
-        acquisition_values: 采集函数值数组
+        acquisition_values: Array of acquisition function values.
     """
     from scipy.stats import norm
 
-    # 获取预测均值和标准差
+    # Get predictive means and standard deviations.
     if hasattr(model, 'predict') and hasattr(model, 'predict'):
-        # 高斯过程模型
+        # Gaussian process prediction.
         try:
             mu, sigma = model.predict(X_pool, return_std=True)
         except:
-            # 如果模型不支持return_std，使用预测值作为均值，标准差设为0
+            # If return_std is unsupported, use point predictions with zero standard deviation.
             mu = model.predict(X_pool)
             sigma = np.zeros_like(mu)
     else:
         raise ValueError("Model must support predict with return_std=True")
 
-    # 避免除零
+    # Avoid division by zero.
     sigma = np.maximum(sigma, 1e-9)
 
     if acquisition == 'ei':
         # Expected Improvement
-        # 找到当前最优值
+        # Find the current best value.
         if hasattr(model, 'y_train_'):
             f_best = np.max(model.y_train_)
         else:
             f_best = np.max(mu)
 
-        # 计算改进
+        # Compute improvement.
         improvement = mu - f_best - xi
         Z = improvement / sigma
 
-        # 计算期望改进
+        # Compute expected improvement.
         ei = improvement * norm.cdf(Z) + sigma * norm.pdf(Z)
         acquisition_values = ei
 
@@ -340,36 +340,36 @@ def bayesian_optimization_loop(
     random_state: int = 42
 ) -> Dict:
     """
-    贝叶斯优化主循环
+    Run the Bayesian optimization loop.
 
     Args:
-        objective_function: 目标函数（如果为None，使用监督学习模式）
-        X_train_initial: 初始训练特征
-        y_train_initial: 初始训练标签
-        X_pool: 候选样本池
-        n_iterations: 优化迭代次数
-        acquisition: 采集函数 ('ei', 'ucb', 'pi')
-        model_type: 代理模型类型 ('gp', 'rf', 'gbrt')
-        samples_per_iteration: 每次迭代选择的样本数
-        random_state: 随机种子
+        objective_function: Objective callable; None logs a warning and uses zero placeholder targets.
+        X_train_initial: Initial training features.
+        y_train_initial: Initial training targets.
+        X_pool: Candidate sample pool.
+        n_iterations: Number of optimization iterations.
+        acquisition: Acquisition function ('ei', 'ucb', 'pi').
+        model_type: Surrogate model type ('gp', 'rf', 'gbrt').
+        samples_per_iteration: Number of samples selected per iteration.
+        random_state: Random seed.
 
     Returns:
-        results: 包含优化历史的字典
-            - 'selected_samples': 每次迭代选中的样本索引
-            - 'acquisition_values': 每次迭代的采集函数值
-            - 'best_values': 每次迭代的最优值
-            - 'model_history': 模型历史
-            - 'X_train_history': 训练集历史
-            - 'y_train_history': 标签历史
+        results: Dictionary containing the optimization history.
+            - 'selected_samples': Selected sample indices at each iteration.
+            - 'acquisition_values': Acquisition values at each iteration.
+            - 'best_values': Best value at each iteration.
+            - 'model_history': Fitted model history.
+            - 'X_train_history': Training feature history.
+            - 'y_train_history': Training target history.
     """
     np.random.seed(random_state)
 
-    # 初始化
+    # Initialize state.
     X_train = X_train_initial.copy()
     y_train = y_train_initial.copy()
     X_pool_remaining = X_pool.copy()
 
-    # 记录历史
+    # Record history.
     selected_samples_history = []
     acquisition_values_history = []
     best_values_history = []
@@ -382,7 +382,7 @@ def bayesian_optimization_loop(
     for iteration in range(n_iterations):
         logger.info(f"Iteration {iteration + 1}/{n_iterations}")
 
-        # 训练代理模型
+        # Train the surrogate model.
         if model_type == 'gp':
             model = fit_gaussian_process(X_train, y_train)
         elif model_type == 'rf':
@@ -396,51 +396,51 @@ def bayesian_optimization_loop(
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 
-        # 计算采集函数
+        # Compute acquisition values.
         if model_type == 'gp':
             acq_values = compute_acquisition_function(model, X_pool_remaining, acquisition=acquisition)
         else:
-            # 对于非GP模型，使用简单的不确定性估计
+            # For non-GP models, rank candidates directly by predicted values.
             predictions = model.predict(X_pool_remaining)
-            acq_values = predictions  # 简化版本
+            acq_values = predictions  # Point-prediction fallback.
 
-        # 选择样本
+        # Select samples.
         selected_indices = np.argsort(acq_values)[-samples_per_iteration:][::-1]
         selected_samples_history.append(selected_indices)
         acquisition_values_history.append(acq_values)
 
-        # 获取选中样本的真实标签
+        # Prepare selected samples for objective evaluation.
         X_selected = X_pool_remaining[selected_indices]
 
         if objective_function is not None:
-            # 使用目标函数评估
+            # Evaluate the objective function.
             y_selected = np.array([objective_function(x) for x in X_selected])
         else:
-            # 监督学习模式：需要从外部提供标签
+            # Without an objective callable, use zero placeholders and warn the caller.
             logger.warning("No objective function provided, cannot evaluate selected samples")
             y_selected = np.zeros(len(selected_indices))
 
-        # 更新训练集
+        # Update the training set.
         X_train = np.vstack([X_train, X_selected])
         y_train = np.concatenate([y_train, y_selected])
 
-        # 从池中移除选中的样本
+        # Remove selected samples from the pool.
         mask = np.ones(len(X_pool_remaining), dtype=bool)
         mask[selected_indices] = False
         X_pool_remaining = X_pool_remaining[mask]
 
-        # 记录最优值
+        # Record the best value.
         best_value = np.max(y_train)
         best_values_history.append(best_value)
 
-        # 记录历史
+        # Record history.
         model_history.append(model)
         X_train_history.append(X_train.copy())
         y_train_history.append(y_train.copy())
 
         logger.info(f"Selected {len(selected_indices)} samples, best value so far: {best_value:.4f}")
 
-        # 如果池已空，提前结束
+        # Stop early if the pool is exhausted.
         if len(X_pool_remaining) == 0:
             logger.info("Pool exhausted, stopping optimization")
             break
@@ -478,44 +478,44 @@ def active_learning_workflow(
     random_state: int = 42
 ) -> Dict:
     """
-    完整的主动学习工作流
+    Run the complete active learning workflow.
 
     Args:
-        X_train_initial: 初始训练特征
-        y_train_initial: 初始训练标签
-        X_pool: 未标注样本池
-        y_pool_true: 样本池的真实标签（用于模拟）
-        model_name: 模型名称 ('random_forest', 'svm', 'logistic', etc.)
-        task_type: 任务类型 ('classification', 'regression')
-        strategy: 采样策略 ('uncertainty', 'qbc', 'random')
-        n_iterations: 迭代次数
-        samples_per_iteration: 每次迭代选择的样本数
-        random_state: 随机种子
+        X_train_initial: Initial training features.
+        y_train_initial: Initial training targets.
+        X_pool: Pool of unlabeled samples.
+        y_pool_true: True pool labels used to simulate annotation.
+        model_name: Model name ('random_forest', 'svm', 'logistic', etc.).
+        task_type: Task type ('classification', 'regression').
+        strategy: Sampling strategy ('uncertainty', 'qbc', 'random').
+        n_iterations: Number of iterations.
+        samples_per_iteration: Number of samples selected per iteration.
+        random_state: Random seed.
 
     Returns:
-        results: 包含完整历史的字典
-            - 'iteration_metrics': 每次迭代的性能指标
-            - 'selected_indices': 每次迭代选中的样本索引
-            - 'final_model': 最终训练的模型
-            - 'training_history': 完整训练历史
-            - 'X_train_history': 训练集历史
-            - 'y_train_history': 标签历史
+        results: Dictionary containing the complete workflow history.
+            - 'iteration_metrics': Performance metrics at each iteration.
+            - 'selected_indices': Selected sample indices at each iteration.
+            - 'final_model': Final trained model.
+            - 'training_history': Complete training history.
+            - 'X_train_history': Training feature history.
+            - 'y_train_history': Training target history.
     """
     np.random.seed(random_state)
 
-    # 初始化
+    # Initialize state.
     X_train = X_train_initial.copy()
     y_train = y_train_initial.copy()
     X_pool_remaining = X_pool.copy()
     y_pool_remaining = y_pool_true.copy()
 
-    # 记录历史
+    # Record history.
     iteration_metrics = []
     selected_indices_history = []
     X_train_history = [X_train.copy()]
     y_train_history = [y_train.copy()]
 
-    # 选择模型
+    # Select the model.
     if task_type == 'classification':
         if model_name == 'random_forest':
             from sklearn.ensemble import RandomForestClassifier
@@ -545,14 +545,14 @@ def active_learning_workflow(
     for iteration in range(n_iterations):
         logger.info(f"Iteration {iteration + 1}/{n_iterations}")
 
-        # 训练模型
+        # Train the model.
         model = base_model.__class__(**base_model.get_params())
         model.fit(X_train, y_train)
 
-        # 评估当前模型
+        # Evaluate the current model.
         if task_type == 'classification':
             train_score = accuracy_score(y_train, model.predict(X_train))
-            # 在整个池上评估（包括已标注和未标注）
+            # Evaluate on the full pool, including labeled and unlabeled samples.
             all_X = np.vstack([X_train, X_pool_remaining])
             all_y = np.concatenate([y_train, y_pool_remaining])
             test_score = accuracy_score(all_y, model.predict(all_X))
@@ -574,12 +574,12 @@ def active_learning_workflow(
 
         logger.info(f"Train {metric_name}: {train_score:.4f}, Test {metric_name}: {test_score:.4f}")
 
-        # 如果池已空，提前结束
+        # Stop early if the pool is exhausted.
         if len(X_pool_remaining) == 0:
             logger.info("Pool exhausted, stopping active learning")
             break
 
-        # 选择样本
+        # Select samples.
         if strategy == 'uncertainty':
             if task_type == 'classification':
                 selected_indices = uncertainty_sampling(
@@ -588,7 +588,7 @@ def active_learning_workflow(
                     method='entropy'
                 )
             else:
-                # 回归任务：随机采样（简化版本）
+                # For regression, use random sampling as a simplified fallback.
                 selected_indices = np.random.choice(
                     len(X_pool_remaining),
                     size=min(samples_per_iteration, len(X_pool_remaining)),
@@ -596,11 +596,11 @@ def active_learning_workflow(
                 )
 
         elif strategy == 'qbc':
-            # 训练委员会
+            # Train the committee.
             committee = []
             for i in range(3):
                 committee_model = base_model.__class__(**base_model.get_params())
-                # 使用bootstrap采样
+                # Use bootstrap sampling.
                 bootstrap_indices = np.random.choice(len(X_train), size=len(X_train), replace=True)
                 committee_model.fit(X_train[bootstrap_indices], y_train[bootstrap_indices])
                 committee.append(committee_model)
@@ -612,7 +612,7 @@ def active_learning_workflow(
             )
 
         elif strategy == 'random':
-            # 随机采样（基线）
+            # Random sampling baseline.
             selected_indices = np.random.choice(
                 len(X_pool_remaining),
                 size=min(samples_per_iteration, len(X_pool_remaining)),
@@ -624,25 +624,25 @@ def active_learning_workflow(
 
         selected_indices_history.append(selected_indices)
 
-        # 获取选中样本的真实标签
+        # Prepare selected samples for objective evaluation.
         X_selected = X_pool_remaining[selected_indices]
         y_selected = y_pool_remaining[selected_indices]
 
-        # 更新训练集
+        # Update the training set.
         X_train = np.vstack([X_train, X_selected])
         y_train = np.concatenate([y_train, y_selected])
 
-        # 从池中移除选中的样本
+        # Remove selected samples from the pool.
         mask = np.ones(len(X_pool_remaining), dtype=bool)
         mask[selected_indices] = False
         X_pool_remaining = X_pool_remaining[mask]
         y_pool_remaining = y_pool_remaining[mask]
 
-        # 记录历史
+        # Record history.
         X_train_history.append(X_train.copy())
         y_train_history.append(y_train.copy())
 
-    # 训练最终模型
+    # Train the final model.
     final_model = base_model.__class__(**base_model.get_params())
     final_model.fit(X_train, y_train)
 
@@ -682,42 +682,42 @@ def plot_uncertainty_intervals(
     feature_idx: int = 0
 ) -> plt.Figure:
     """
-    绘制精美的不确定性区间图
+    Plot predictive uncertainty intervals.
 
-    使用fill_between创建阴影置信区间，展示模型预测的不确定性
+    Use fill_between to shade intervals around model predictions.
 
     Args:
-        X: 预测点的特征
-        y_pred: 预测均值
-        y_std: 预测标准差
-        X_new: 新选择的样本特征（可选）
-        y_new: 新选择的样本标签（可选）
-        X_train: 训练样本特征（可选）
-        y_train: 训练样本标签（可选）
-        title: 图表标题
-        feature_idx: 用于绘图的特征索引（如果X是多维的）
+        X: Features at prediction locations.
+        y_pred: Predictive means.
+        y_std: Predictive standard deviations.
+        X_new: Optional features of newly selected samples.
+        y_new: Optional labels of newly selected samples.
+        X_train: Optional training sample features.
+        y_train: Optional training sample labels.
+        title: Plot title.
+        feature_idx: Feature index to plot when X is multidimensional.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     fig, ax = plt.subplots(figsize=(12, 6), dpi=300)
 
-    # 如果X是多维的，只使用指定的特征维度
+    # For multidimensional X, use only the requested feature.
     if X.ndim > 1:
         X_plot = X[:, feature_idx]
     else:
         X_plot = X
 
-    # 排序以便平滑绘图
+    # Sort points for a continuous plot.
     sort_idx = np.argsort(X_plot)
     X_sorted = X_plot[sort_idx]
     y_pred_sorted = y_pred[sort_idx]
     y_std_sorted = y_std[sort_idx]
 
-    # 绘制预测均值
+    # Plot the predictive mean.
     ax.plot(X_sorted, y_pred_sorted, 'b-', linewidth=2.5, label='Mean Prediction', zorder=3)
 
-    # 绘制95%置信区间（1.96 * std）
+    # Plot a nominal 95% interval (mean +/- 1.96 * std).
     ax.fill_between(
         X_sorted,
         y_pred_sorted - 1.96 * y_std_sorted,
@@ -725,7 +725,7 @@ def plot_uncertainty_intervals(
         alpha=0.2, color='blue', label='95% Confidence', zorder=1
     )
 
-    # 绘制68%置信区间（1 * std）
+    # Plot a nominal 68% interval (mean +/- 1 * std).
     ax.fill_between(
         X_sorted,
         y_pred_sorted - y_std_sorted,
@@ -733,7 +733,7 @@ def plot_uncertainty_intervals(
         alpha=0.3, color='blue', label='68% Confidence', zorder=2
     )
 
-    # 绘制训练样本
+    # Plot training samples.
     if X_train is not None and y_train is not None:
         if X_train.ndim > 1:
             X_train_plot = X_train[:, feature_idx]
@@ -743,7 +743,7 @@ def plot_uncertainty_intervals(
                    edgecolors='black', linewidths=1, alpha=0.7,
                    label='Training Samples', zorder=4)
 
-    # 绘制新选择的样本
+    # Plot newly selected samples.
     if X_new is not None and y_new is not None:
         if X_new.ndim > 1:
             X_new_plot = X_new[:, feature_idx]
@@ -771,36 +771,36 @@ def plot_acquisition_function(
     feature_idx: int = 0
 ) -> plt.Figure:
     """
-    绘制采集函数图
+    Plot the acquisition function.
 
     Args:
-        X_pool: 候选样本池
-        acquisition_values: 采集函数值
-        selected_idx: 选中样本的索引（可选）
-        title: 图表标题
-        feature_idx: 用于绘图的特征索引
+        X_pool: Candidate sample pool.
+        acquisition_values: Acquisition function values.
+        selected_idx: Optional selected sample indices.
+        title: Plot title.
+        feature_idx: Feature index to plot.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     fig, ax = plt.subplots(figsize=(12, 6), dpi=300)
 
-    # 如果X是多维的，只使用指定的特征维度
+    # For multidimensional X, use only the requested feature.
     if X_pool.ndim > 1:
         X_plot = X_pool[:, feature_idx]
     else:
         X_plot = X_pool
 
-    # 排序以便平滑绘图
+    # Sort points for a continuous plot.
     sort_idx = np.argsort(X_plot)
     X_sorted = X_plot[sort_idx]
     acq_sorted = acquisition_values[sort_idx]
 
-    # 绘制采集函数
+    # Draw the acquisition function.
     ax.plot(X_sorted, acq_sorted, 'g-', linewidth=2, label='Acquisition Function')
     ax.fill_between(X_sorted, 0, acq_sorted, alpha=0.3, color='green')
 
-    # 高亮选中的样本
+    # Highlight selected samples.
     if selected_idx is not None:
         X_selected = X_plot[selected_idx]
         acq_selected = acquisition_values[selected_idx]
@@ -823,16 +823,16 @@ def plot_optimization_trajectory(
     metric: str = 'test_score'
 ) -> plt.Figure:
     """
-    绘制优化轨迹图
+    Plot the optimization trajectory.
 
-    展示模型性能随迭代次数的变化
+    Show model performance across iterations.
 
     Args:
-        results: active_learning_workflow返回的结果字典
-        metric: 要绘制的指标 ('test_score', 'train_score')
+        results: Result dictionary returned by active_learning_workflow.
+        metric: Metric to plot ('test_score', 'train_score').
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
 
@@ -849,11 +849,11 @@ def plot_optimization_trajectory(
         scores = [m.get(metric, 0) for m in iteration_metrics]
         label = metric
 
-    # 绘制性能曲线
+    # Plot performance curves.
     ax.plot(iterations, scores, 'o-', linewidth=2.5, markersize=8,
             color='steelblue', label=label)
 
-    # 添加最佳性能线
+    # Add a reference line for the best performance.
     best_score = max(scores)
     best_iter = iterations[scores.index(best_score)]
     ax.axhline(y=best_score, color='red', linestyle='--', linewidth=2,
@@ -874,39 +874,39 @@ def plot_convergence(
     show_confidence: bool = True
 ) -> plt.Figure:
     """
-    绘制收敛图
+    Plot convergence.
 
-    展示性能改进和收敛趋势
+    Show performance improvement and convergence trends.
 
     Args:
-        results: active_learning_workflow或bayesian_optimization_loop返回的结果字典
-        show_confidence: 是否显示置信带
+        results: Result dictionary from active_learning_workflow or bayesian_optimization_loop.
+        show_confidence: Show an uncertainty band around the moving average.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
 
-    # 检查结果类型
+    # Check the result type.
     if 'iteration_metrics' in results:
-        # Active learning结果
+        # Active learning results.
         iteration_metrics = results['iteration_metrics']
         iterations = [m['iteration'] for m in iteration_metrics]
         scores = [m['test_score'] for m in iteration_metrics]
         ylabel = 'Test Score'
     elif 'best_values' in results:
-        # Bayesian optimization结果
+        # Bayesian optimization results.
         iterations = list(range(1, len(results['best_values']) + 1))
         scores = results['best_values']
         ylabel = 'Best Value'
     else:
         raise ValueError("Unknown results format")
 
-    # 绘制收敛曲线
+    # Plot the convergence curve.
     ax.plot(iterations, scores, 'o-', linewidth=2.5, markersize=8,
             color='darkgreen', label='Performance')
 
-    # 如果显示置信带，计算移动平均和标准差
+    # Compute the moving average and standard deviation for the uncertainty band.
     if show_confidence and len(scores) > 3:
         window = min(3, len(scores))
         moving_avg = pd.Series(scores).rolling(window=window, center=True, min_periods=1).mean()
@@ -936,16 +936,16 @@ def plot_learning_progress(
     metrics_to_plot: List[str] = ['test_score', 'train_score']
 ) -> plt.Figure:
     """
-    绘制学习进度图
+    Plot learning progress.
 
-    展示多个指标随迭代的变化
+    Show multiple metrics across iterations.
 
     Args:
-        iteration_metrics: 迭代指标列表
-        metrics_to_plot: 要绘制的指标列表
+        iteration_metrics: List of per-iteration metrics.
+        metrics_to_plot: List of metrics to display.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     fig, ax = plt.subplots(figsize=(12, 6), dpi=300)
 
@@ -979,24 +979,24 @@ def plot_exploration_space_2d(
     feature_indices: Tuple[int, int] = (0, 1)
 ) -> plt.Figure:
     """
-    绘制2D探索空间可视化
+    Plot the exploration space in two dimensions.
 
     Args:
-        X_train: 训练样本特征
-        y_train: 训练样本标签
-        X_pool: 样本池特征
-        selected_idx: 选中样本的索引（可选）
-        feature_names: 特征名称列表（可选）
-        feature_indices: 用于绘图的两个特征索引
+        X_train: Training sample features.
+        y_train: Training sample labels.
+        X_pool: Sample pool features.
+        selected_idx: Optional selected sample indices.
+        feature_names: Optional list of feature names.
+        feature_indices: Two feature indices to plot.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
 
     idx1, idx2 = feature_indices
 
-    # 绘制训练样本
+    # Plot training samples.
     scatter_train = ax.scatter(
         X_train[:, idx1], X_train[:, idx2],
         c=y_train, cmap='viridis', s=100,
@@ -1004,7 +1004,7 @@ def plot_exploration_space_2d(
         alpha=0.8, label='Training Samples'
     )
 
-    # 绘制样本池
+    # Plot the sample pool.
     ax.scatter(
         X_pool[:, idx1], X_pool[:, idx2],
         c='lightgray', s=50, alpha=0.5,
@@ -1012,7 +1012,7 @@ def plot_exploration_space_2d(
         label='Pool Samples'
     )
 
-    # 绘制选中的样本
+    # Plot selected samples.
     if selected_idx is not None:
         ax.scatter(
             X_pool[selected_idx, idx1], X_pool[selected_idx, idx2],
@@ -1021,7 +1021,7 @@ def plot_exploration_space_2d(
             label='Selected Samples', zorder=5
         )
 
-    # 设置标签
+    # Set axis labels.
     if feature_names is not None:
         xlabel = feature_names[idx1]
         ylabel = feature_names[idx2]
@@ -1033,7 +1033,7 @@ def plot_exploration_space_2d(
     ax.set_ylabel(ylabel, fontsize=14, fontweight='bold')
     ax.set_title('2D Exploration Space', fontsize=16, fontweight='bold', pad=20)
 
-    # 添加颜色条
+    # Add a color bar.
     cbar = plt.colorbar(scatter_train, ax=ax)
     cbar.set_label('Target Value', fontsize=12)
 
@@ -1053,18 +1053,18 @@ def plot_exploration_space_3d(
     feature_indices: Tuple[int, int, int] = (0, 1, 2)
 ) -> plt.Figure:
     """
-    绘制3D探索空间可视化
+    Plot the exploration space in three dimensions.
 
     Args:
-        X_train: 训练样本特征
-        y_train: 训练样本标签
-        X_pool: 样本池特征
-        selected_idx: 选中样本的索引（可选）
-        feature_names: 特征名称列表（可选）
-        feature_indices: 用于绘图的三个特征索引
+        X_train: Training sample features.
+        y_train: Training sample labels.
+        X_pool: Sample pool features.
+        selected_idx: Optional selected sample indices.
+        feature_names: Optional list of feature names.
+        feature_indices: Three feature indices to plot.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     from mpl_toolkits.mplot3d import Axes3D
 
@@ -1073,7 +1073,7 @@ def plot_exploration_space_3d(
 
     idx1, idx2, idx3 = feature_indices
 
-    # 绘制训练样本
+    # Plot training samples.
     scatter_train = ax.scatter(
         X_train[:, idx1], X_train[:, idx2], X_train[:, idx3],
         c=y_train, cmap='viridis', s=100,
@@ -1081,7 +1081,7 @@ def plot_exploration_space_3d(
         alpha=0.8, label='Training Samples'
     )
 
-    # 绘制样本池
+    # Plot the sample pool.
     ax.scatter(
         X_pool[:, idx1], X_pool[:, idx2], X_pool[:, idx3],
         c='lightgray', s=30, alpha=0.3,
@@ -1089,7 +1089,7 @@ def plot_exploration_space_3d(
         label='Pool Samples'
     )
 
-    # 绘制选中的样本
+    # Plot selected samples.
     if selected_idx is not None:
         ax.scatter(
             X_pool[selected_idx, idx1],
@@ -1100,7 +1100,7 @@ def plot_exploration_space_3d(
             label='Selected Samples'
         )
 
-    # 设置标签
+    # Set axis labels.
     if feature_names is not None:
         xlabel = feature_names[idx1]
         ylabel = feature_names[idx2]
@@ -1115,7 +1115,7 @@ def plot_exploration_space_3d(
     ax.set_zlabel(zlabel, fontsize=12, fontweight='bold')
     ax.set_title('3D Exploration Space', fontsize=16, fontweight='bold', pad=20)
 
-    # 添加颜色条
+    # Add a color bar.
     cbar = plt.colorbar(scatter_train, ax=ax, shrink=0.8)
     cbar.set_label('Target Value', fontsize=12)
 
@@ -1130,39 +1130,39 @@ def plot_sample_selection_heatmap(
     n_pool_samples: int
 ) -> plt.Figure:
     """
-    绘制样本选择热图
+    Plot a sample selection heatmap.
 
-    展示哪些样本在哪些迭代中被选中
+    Show which samples were selected at each iteration.
 
     Args:
-        selected_indices_history: 每次迭代选中的样本索引列表
-        n_pool_samples: 样本池总数
+        selected_indices_history: List of selected sample indices for each iteration.
+        n_pool_samples: Total number of samples in the pool.
 
     Returns:
-        fig: matplotlib Figure对象
+        fig: Matplotlib Figure object.
     """
     fig, ax = plt.subplots(figsize=(12, 8), dpi=300)
 
-    # 创建选择矩阵
+    # Create the selection matrix.
     n_iterations = len(selected_indices_history)
     selection_matrix = np.zeros((n_iterations, n_pool_samples))
 
     for i, selected_idx in enumerate(selected_indices_history):
         selection_matrix[i, selected_idx] = 1
 
-    # 绘制热图
+    # Draw the heatmap.
     im = ax.imshow(selection_matrix, cmap='YlOrRd', aspect='auto', interpolation='nearest')
 
-    # 设置标签
+    # Set axis labels.
     ax.set_xlabel('Sample Index', fontsize=14, fontweight='bold')
     ax.set_ylabel('Iteration', fontsize=14, fontweight='bold')
     ax.set_title('Sample Selection Heatmap', fontsize=16, fontweight='bold', pad=20)
 
-    # 设置刻度
+    # Set axis ticks.
     ax.set_yticks(range(n_iterations))
     ax.set_yticklabels([f'Iter {i+1}' for i in range(n_iterations)])
 
-    # 添加颜色条
+    # Add a color bar.
     cbar = plt.colorbar(im, ax=ax)
     cbar.set_label('Selected', fontsize=12)
 

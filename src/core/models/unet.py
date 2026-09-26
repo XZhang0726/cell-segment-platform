@@ -1,7 +1,7 @@
 """
-U-Net模型实现
+U-Net model implementation.
 
-用于细胞分割的U-Net架构
+U-Net architecture for cell segmentation.
 """
 import torch
 import torch.nn as nn
@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 
 class DoubleConv(nn.Module):
-    """双卷积块 (Conv -> BN -> ReLU) * 2"""
+    """Double convolution block: (Conv -> BN -> ReLU) repeated twice."""
 
     def __init__(self, in_channels: int, out_channels: int, mid_channels: Optional[int] = None):
         super().__init__()
@@ -35,7 +35,7 @@ class DoubleConv(nn.Module):
 
 
 class Down(nn.Module):
-    """下采样块 (MaxPool -> DoubleConv)"""
+    """Downsampling block: MaxPool -> DoubleConv."""
 
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
@@ -49,12 +49,12 @@ class Down(nn.Module):
 
 
 class Up(nn.Module):
-    """上采样块 (Upsample -> Concat -> DoubleConv)"""
+    """Upsampling block: Upsample -> Concat -> DoubleConv."""
 
     def __init__(self, in_channels: int, out_channels: int, bilinear: bool = True):
         super().__init__()
 
-        # 使用双线性插值或转置卷积进行上采样
+        # Upsample using bilinear interpolation or transposed convolution.
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
             self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
@@ -64,19 +64,19 @@ class Up(nn.Module):
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
-        # 处理输入尺寸不匹配的情况
+        # Handle mismatched spatial dimensions.
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
 
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
-        # 拼接跳跃连接
+        # Concatenate the skip connection.
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
 
 class OutConv(nn.Module):
-    """输出卷积层"""
+    """Output convolution layer."""
 
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
@@ -88,12 +88,12 @@ class OutConv(nn.Module):
 
 class UNet(nn.Module):
     """
-    U-Net模型
+    U-Net model.
 
     Args:
-        n_channels: 输入图像通道数
-        n_classes: 输出类别数
-        bilinear: 是否使用双线性插值上采样（否则使用转置卷积）
+        n_channels: Number of input image channels.
+        n_classes: Number of output classes.
+        bilinear: Use bilinear upsampling; otherwise use transposed convolution.
     """
 
     def __init__(self, n_channels: int = 3, n_classes: int = 1, bilinear: bool = True):
@@ -102,7 +102,7 @@ class UNet(nn.Module):
         self.n_classes = n_classes
         self.bilinear = bilinear
 
-        # 编码器
+        # Encoder.
         self.inc = DoubleConv(n_channels, 64)
         self.down1 = Down(64, 128)
         self.down2 = Down(128, 256)
@@ -110,7 +110,7 @@ class UNet(nn.Module):
         factor = 2 if bilinear else 1
         self.down4 = Down(512, 1024 // factor)
 
-        # 解码器
+        # Decoder.
         self.up1 = Up(1024, 512 // factor, bilinear)
         self.up2 = Up(512, 256 // factor, bilinear)
         self.up3 = Up(256, 128 // factor, bilinear)
@@ -120,14 +120,14 @@ class UNet(nn.Module):
         logger.info(f"Initialized UNet: channels={n_channels}, classes={n_classes}, bilinear={bilinear}")
 
     def forward(self, x):
-        # 编码器路径
+        # Encoder path.
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
         x4 = self.down3(x3)
         x5 = self.down4(x4)
 
-        # 解码器路径（带跳跃连接）
+        # Decoder path with skip connections.
         x = self.up1(x5, x4)
         x = self.up2(x, x3)
         x = self.up3(x, x2)

@@ -1,7 +1,7 @@
 """
-高级细胞形态学特征提取模块
+Advanced cell morphology feature extraction.
 
-提供更高级的形态学、纹理和强度特征提取方法
+Provides additional morphological, texture, and intensity features.
 """
 import numpy as np
 import pandas as pd
@@ -15,18 +15,18 @@ from loguru import logger
 
 def extract_hu_moments(region) -> Dict[str, float]:
     """
-    提取Hu矩特征（7个旋转、缩放、平移不变的形状描述符）
+    Extract seven Hu moment shape descriptors.
 
     Args:
-        region: skimage regionprops对象
+        region: A skimage regionprops object.
 
     Returns:
-        包含7个Hu矩的字典
+        Dictionary containing seven Hu moments.
     """
-    # 获取归一化的中心矩
+    # Get central moments for Hu moment computation.
     hu = moments_hu(region.moments_central)
 
-    # 对Hu矩取对数，使其更适合分析
+    # Log-transform Hu moments for analysis.
     hu_log = -np.sign(hu) * np.log10(np.abs(hu) + 1e-10)
 
     return {
@@ -42,35 +42,35 @@ def extract_hu_moments(region) -> Dict[str, float]:
 
 def extract_intensity_features(region, image: np.ndarray) -> Dict[str, float]:
     """
-    提取强度统计特征
+    Extract intensity statistics.
 
     Args:
-        region: skimage regionprops对象
-        image: 原始灰度图像
+        region: A skimage regionprops object.
+        image: Original grayscale image.
 
     Returns:
-        强度特征字典
+        Dictionary of intensity features.
     """
-    # 获取细胞区域的像素值
+    # Extract pixel intensities within the cell region.
     cell_pixels = image[region.coords[:, 0], region.coords[:, 1]]
 
-    # 基础统计
+    # Basic statistics.
     mean_intensity = np.mean(cell_pixels)
     std_intensity = np.std(cell_pixels)
     min_intensity = np.min(cell_pixels)
     max_intensity = np.max(cell_pixels)
     median_intensity = np.median(cell_pixels)
 
-    # 高级统计
+    # Higher-order statistics.
     skewness = skew(cell_pixels)
     kurt = kurtosis(cell_pixels)
 
-    # 计算熵（信息熵）
+    # Compute information entropy.
     hist, _ = np.histogram(cell_pixels, bins=256, range=(0, 256))
-    hist = hist / hist.sum()  # 归一化
-    ent = entropy(hist + 1e-10)  # 避免log(0)
+    hist = hist / hist.sum()  # Normalize.
+    ent = entropy(hist + 1e-10)  # Avoid log(0).
 
-    # 强度范围和对比度
+    # Intensity range and contrast.
     intensity_range = max_intensity - min_intensity
 
     return {
@@ -88,27 +88,27 @@ def extract_intensity_features(region, image: np.ndarray) -> Dict[str, float]:
 
 def extract_boundary_features(region, pixel_size: float = 1.0) -> Dict[str, float]:
     """
-    提取边界复杂度特征
+    Extract boundary complexity features.
 
     Args:
-        region: skimage regionprops对象
-        pixel_size: 像素大小(μm/pixel)
+        region: A skimage regionprops object.
+        pixel_size: Pixel size in micrometers per pixel.
 
     Returns:
-        边界特征字典
+        Dictionary of boundary features.
     """
-    # 边界粗糙度 = 周长² / (4π * 面积)
-    # 完美圆形的粗糙度为1，越粗糙值越大
+    # Boundary roughness = perimeter^2 / (4*pi*area).
+    # A perfect circle has roughness 1; rougher boundaries yield larger values.
     roughness = (region.perimeter ** 2) / (4 * np.pi * region.area) if region.area > 0 else 0
 
-    # 紧凑度 = 面积 / 凸包面积
+    # Compactness = area / convex-hull area.
     compactness = region.solidity
 
-    # 凹凸性 = 凸包周长 - 周长
+    # Concavity estimate = estimated convex-hull perimeter - perimeter.
     convex_perimeter = region.perimeter / region.solidity if region.solidity > 0 else region.perimeter
     concavity = (convex_perimeter - region.perimeter) * pixel_size
 
-    # 形状因子 = 4π * 面积 / 周长²（与circularity相同，但这里是标准定义）
+    # Shape factor = 4*pi*area/perimeter^2, equivalent to circularity.
     shape_factor = (4 * np.pi * region.area) / (region.perimeter ** 2) if region.perimeter > 0 else 0
 
     return {
@@ -121,26 +121,26 @@ def extract_boundary_features(region, pixel_size: float = 1.0) -> Dict[str, floa
 
 def extract_texture_features_glcm(region, image: np.ndarray, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4]) -> Dict[str, float]:
     """
-    提取基于灰度共生矩阵（GLCM）的Haralick纹理特征
+    Extract Haralick texture features from gray-level co-occurrence matrices (GLCMs).
 
     Args:
-        region: skimage regionprops对象
-        image: 原始灰度图像
-        distances: GLCM计算的距离列表
-        angles: GLCM计算的角度列表
+        region: A skimage regionprops object.
+        image: Original grayscale image.
+        distances: List of pixel distances used to compute GLCMs.
+        angles: List of angles used to compute GLCMs.
 
     Returns:
-        纹理特征字典
+        Dictionary of texture features.
     """
-    # 提取细胞区域的图像
+    # Extract the image bounding box of the cell.
     minr, minc, maxr, maxc = region.bbox
     cell_image = image[minr:maxr, minc:maxc]
     cell_mask = region.image
 
-    # 只保留细胞区域的像素
+    # Retain only pixels within the cell region.
     cell_image_masked = cell_image * cell_mask
 
-    # 归一化到0-255
+    # Normalize to [0, 255].
     if cell_image_masked.max() > 0:
         cell_image_normalized = ((cell_image_masked - cell_image_masked.min()) /
                                  (cell_image_masked.max() - cell_image_masked.min()) * 255).astype(np.uint8)
@@ -148,11 +148,11 @@ def extract_texture_features_glcm(region, image: np.ndarray, distances=[1], angl
         cell_image_normalized = cell_image_masked.astype(np.uint8)
 
     try:
-        # 计算GLCM
+        # Compute the GLCMs.
         glcm = feature.graycomatrix(cell_image_normalized, distances=distances, angles=angles,
                                     levels=256, symmetric=True, normed=True)
 
-        # 提取Haralick特征
+        # Extract Haralick features.
         contrast = feature.graycoprops(glcm, 'contrast').mean()
         dissimilarity = feature.graycoprops(glcm, 'dissimilarity').mean()
         homogeneity = feature.graycoprops(glcm, 'homogeneity').mean()
@@ -182,30 +182,30 @@ def extract_texture_features_glcm(region, image: np.ndarray, distances=[1], angl
 
 def calculate_fractal_dimension(region) -> float:
     """
-    计算边界的分形维数（Box-counting方法）
+    Estimate the fractal dimension of the boundary using box counting.
 
     Args:
-        region: skimage regionprops对象
+        region: A skimage regionprops object.
 
     Returns:
-        分形维数
+        Fractal dimension.
     """
     try:
-        # 获取细胞的二值图像
+        # Get the binary cell image.
         binary_image = region.image.astype(bool)
 
-        # 边界提取
+        # Extract the boundary.
         from scipy import ndimage
         boundary = binary_image ^ ndimage.binary_erosion(binary_image)
 
-        # Box-counting算法
+        # Box-counting algorithm.
         def boxcount(image, k):
             S = np.add.reduceat(
                 np.add.reduceat(image, np.arange(0, image.shape[0], k), axis=0),
                 np.arange(0, image.shape[1], k), axis=1)
             return len(np.where(S > 0)[0])
 
-        # 计算不同尺度下的box数量
+        # Count occupied boxes at different scales.
         scales = np.array([2, 4, 8, 16])
         scales = scales[scales < min(boundary.shape)]
 
@@ -216,7 +216,7 @@ def calculate_fractal_dimension(region) -> float:
         for scale in scales:
             counts.append(boxcount(boundary, scale))
 
-        # 线性拟合 log(N) vs log(1/scale)
+        # Fit log(N) against log(scale), then negate the slope.
         coeffs = np.polyfit(np.log(scales), np.log(counts), 1)
         fractal_dim = -coeffs[0]
 
@@ -228,29 +228,29 @@ def calculate_fractal_dimension(region) -> float:
 
 def extract_advanced_shape_features(region, pixel_size: float = 1.0) -> Dict[str, float]:
     """
-    提取高级形状特征
+    Extract advanced shape features.
 
     Args:
-        region: skimage regionprops对象
-        pixel_size: 像素大小(μm/pixel)
+        region: A skimage regionprops object.
+        pixel_size: Pixel size in micrometers per pixel.
 
     Returns:
-        高级形状特征字典
+        Dictionary of advanced shape features.
     """
-    # 椭圆度 = 短轴/长轴
+    # Ellipticity = minor axis / major axis.
     ellipticity = region.minor_axis_length / region.major_axis_length if region.major_axis_length > 0 else 0
 
-    # 伸长度 = 1 - 椭圆度
+    # Elongation = 1 - ellipticity.
     elongation = 1 - ellipticity
 
-    # 矩形度 = 面积 / 边界框面积
+    # Rectangularity = area / bounding-box area.
     bbox_area = (region.bbox[2] - region.bbox[0]) * (region.bbox[3] - region.bbox[1])
     rectangularity = region.area / bbox_area if bbox_area > 0 else 0
 
-    # 等效椭圆面积
+    # Equivalent ellipse area.
     equivalent_ellipse_area = np.pi * region.major_axis_length * region.minor_axis_length / 4
 
-    # 分形维数
+    # Fractal dimension.
     fractal_dim = calculate_fractal_dimension(region)
 
     return {
@@ -274,23 +274,23 @@ def extract_advanced_cell_features(
     include_advanced_shape: bool = True
 ) -> pd.DataFrame:
     """
-    提取高级细胞形态学特征（整合所有高级特征）
+    Extract the complete set of advanced cell morphology features.
 
     Args:
-        mask: 分割掩码，每个细胞有唯一标签
-        image: 原始灰度图像（用于强度和纹理特征）
-        pixel_size: 像素大小(μm/pixel)
-        min_area: 最小细胞面积阈值（像素）
-        include_hu_moments: 是否包含Hu矩特征
-        include_intensity: 是否包含强度特征（需要提供image）
-        include_texture: 是否包含纹理特征（需要提供image）
-        include_boundary: 是否包含边界特征
-        include_advanced_shape: 是否包含高级形状特征
+        mask: Segmentation mask with a unique label for each cell.
+        image: Original grayscale image for intensity and texture features.
+        pixel_size: Pixel size in micrometers per pixel.
+        min_area: Minimum cell area in pixels.
+        include_hu_moments: Include Hu moment features.
+        include_intensity: Include intensity features; requires image.
+        include_texture: Include texture features; requires image.
+        include_boundary: Include boundary features.
+        include_advanced_shape: Include advanced shape features.
 
     Returns:
-        包含所有高级特征的DataFrame
+        DataFrame containing all requested advanced features.
     """
-    # 使用regionprops提取基础信息
+    # Extract basic region information using regionprops.
     if image is not None:
         regions = measure.regionprops(mask, intensity_image=image)
     else:
@@ -304,13 +304,13 @@ def extract_advanced_cell_features(
     sequential_id = 0
 
     for region in regions:
-        # 过滤面积过小的细胞
+        # Exclude cells below the minimum area.
         if region.area < min_area:
             continue
 
         sequential_id += 1
 
-        # 基础特征（包含所有基础形态学特征）
+        # Basic features, including standard morphological descriptors.
         features = {
             'sequential_id': sequential_id,
             'cell_id': region.label,
@@ -321,31 +321,31 @@ def extract_advanced_cell_features(
             'perimeter_pixels': region.perimeter,
             'perimeter_um': region.perimeter * pixel_size,
 
-            # 基础形状特征
+            # Basic shape features.
             'major_axis_length': region.major_axis_length * pixel_size,
             'minor_axis_length': region.minor_axis_length * pixel_size,
             'eccentricity': region.eccentricity,
             'solidity': region.solidity,
             'extent': region.extent,
 
-            # 计算圆度
+            # Compute circularity.
             'circularity': (4 * np.pi * region.area) / (region.perimeter ** 2) if region.perimeter > 0 else 0,
 
-            # 长宽比
+            # Aspect ratio.
             'aspect_ratio': region.major_axis_length / region.minor_axis_length if region.minor_axis_length > 0 else 0,
 
-            # 等效直径
+            # Equivalent diameter.
             'equivalent_diameter_pixels': region.equivalent_diameter,
             'equivalent_diameter_um': region.equivalent_diameter * pixel_size,
 
-            # 边界框
+            # Bounding box.
             'bbox_min_row': region.bbox[0],
             'bbox_min_col': region.bbox[1],
             'bbox_max_row': region.bbox[2],
             'bbox_max_col': region.bbox[3],
         }
 
-        # Hu矩特征
+        # Hu moment features.
         if include_hu_moments:
             try:
                 hu_features = extract_hu_moments(region)
@@ -353,7 +353,7 @@ def extract_advanced_cell_features(
             except Exception as e:
                 logger.warning(f"Failed to extract Hu moments for cell {region.label}: {e}")
 
-        # 强度特征
+        # Intensity features.
         if include_intensity and image is not None:
             try:
                 intensity_features = extract_intensity_features(region, image)
@@ -361,7 +361,7 @@ def extract_advanced_cell_features(
             except Exception as e:
                 logger.warning(f"Failed to extract intensity features for cell {region.label}: {e}")
 
-        # 纹理特征
+        # Texture features.
         if include_texture and image is not None:
             try:
                 texture_features = extract_texture_features_glcm(region, image)
@@ -369,7 +369,7 @@ def extract_advanced_cell_features(
             except Exception as e:
                 logger.warning(f"Failed to extract texture features for cell {region.label}: {e}")
 
-        # 边界特征
+        # Boundary features.
         if include_boundary:
             try:
                 boundary_features = extract_boundary_features(region, pixel_size)
@@ -377,7 +377,7 @@ def extract_advanced_cell_features(
             except Exception as e:
                 logger.warning(f"Failed to extract boundary features for cell {region.label}: {e}")
 
-        # 高级形状特征
+        # Advanced shape features.
         if include_advanced_shape:
             try:
                 shape_features = extract_advanced_shape_features(region, pixel_size)

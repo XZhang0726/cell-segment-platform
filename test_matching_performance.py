@@ -1,7 +1,7 @@
 """
-实例匹配性能对比测试
+Instance matching performance comparison
 
-对比原始版本和优化版本的性能差异
+Compare the original and optimized implementations
 """
 import time
 import numpy as np
@@ -9,167 +9,167 @@ from pathlib import Path
 import cv2
 from loguru import logger
 
-# 导入原始版本和优化版本
+# Import the original and optimized implementations
 from src.core.fusion.instance_matcher import match_instances as match_instances_original
 from src.core.fusion.instance_matcher_optimized import match_instances_optimized
 
 
 def load_test_image(image_path: str) -> np.ndarray:
-    """加载测试图片（支持中文路径）"""
-    # 使用 numpy.fromfile 读取文件，避免中文路径问题
+    """Load a test image (supports Unicode paths)"""
+    # Read the file with numpy.fromfile to support Unicode paths
     img_array = np.fromfile(image_path, dtype=np.uint8)
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
     if img is None:
-        raise ValueError(f"无法加载图片: {image_path}")
+        raise ValueError(f"Unable to load the image: {image_path}")
 
-    # 转换为灰度图
+    # Convert to grayscale
     if len(img.shape) == 3:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    logger.info(f"加载图片: {image_path}, 尺寸: {img.shape}")
+    logger.info(f"Loaded image: {image_path}, dimensions: {img.shape}")
     return img
 
 
 def simulate_segmentation_masks(image: np.ndarray, num_models: int = 3) -> list:
     """
-    模拟多个模型的分割结果
+    Simulate segmentation predictions from multiple models
 
-    为了测试性能，我们创建模拟的分割mask
-    每个模型会生成略有不同的细胞检测结果
+    Generate label maps for the performance benchmark.
+    Each simulated model produces slightly different cell detections.
     """
     height, width = image.shape
     masks = []
 
-    # 使用简单的阈值分割作为基础
+    # Use threshold segmentation as the baseline
     _, binary = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    # 形态学操作
+    # Morphological operations
     kernel = np.ones((3, 3), np.uint8)
     binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=2)
 
-    # 距离变换和分水岭
+    # Distance transform and watershed
     dist_transform = cv2.distanceTransform(binary, cv2.DIST_L2, 5)
 
     for model_idx in range(num_models):
-        # 每个模型使用稍微不同的阈值
+        # Use a slightly different threshold for each model
         threshold_ratio = 0.3 + model_idx * 0.1
         _, markers = cv2.threshold(dist_transform, threshold_ratio * dist_transform.max(), 255, 0)
         markers = markers.astype(np.uint8)
 
-        # 连通组件标记
+        # Connected-component labeling
         num_labels, labels = cv2.connectedComponents(markers)
 
-        # 应用分水岭
+        # Apply watershed segmentation
         labels = labels.astype(np.int32)
         cv2.watershed(cv2.cvtColor(image, cv2.COLOR_GRAY2BGR), labels)
 
-        # 清理标签（移除边界标记-1）
+        # Replace watershed boundary labels (-1) with background (0)
         labels[labels == -1] = 0
 
         masks.append(labels)
-        logger.info(f"模型{model_idx}: 检测到 {num_labels-1} 个实例")
+        logger.info(f"Model {model_idx}: detected {num_labels-1} instances")
 
     return masks
 
 
 def run_performance_test(masks_list: list, iou_threshold: float = 0.5):
     """
-    运行性能对比测试
+    Run the performance comparison
 
     Args:
-        masks_list: 多个模型的分割mask列表
-        iou_threshold: IoU匹配阈值
+        masks_list: List of label maps from different segmentation models
+        iou_threshold: IoU threshold for matching instances
     """
     logger.info("=" * 80)
-    logger.info("开始性能对比测试")
+    logger.info("Starting the performance comparison")
     logger.info("=" * 80)
 
-    # 测试原始版本
-    logger.info("\n【测试原始版本】")
+    # Test the original implementation
+    logger.info("\nOriginal implementation")
     start_time = time.time()
     try:
         results_original = match_instances_original(masks_list, iou_threshold)
         time_original = time.time() - start_time
-        logger.info(f"✓ 原始版本完成，耗时: {time_original:.4f}秒")
-        logger.info(f"  匹配到 {len(results_original)} 个实例组")
+        logger.info(f"[OK] Original implementation completed in {time_original:.4f} seconds")
+        logger.info(f"  Matched {len(results_original)} instance groups")
     except Exception as e:
-        logger.error(f"✗ 原始版本执行失败: {e}")
+        logger.error(f"[FAIL] Original implementation failed: {e}")
         time_original = None
         results_original = None
 
-    # 测试优化版本
-    logger.info("\n【测试优化版本】")
+    # Test the optimized implementation
+    logger.info("\nOptimized implementation")
     start_time = time.time()
     try:
         results_optimized = match_instances_optimized(masks_list, iou_threshold)
         time_optimized = time.time() - start_time
-        logger.info(f"✓ 优化版本完成，耗时: {time_optimized:.4f}秒")
-        logger.info(f"  匹配到 {len(results_optimized)} 个实例组")
+        logger.info(f"[OK] Optimized implementation completed in {time_optimized:.4f} seconds")
+        logger.info(f"  Matched {len(results_optimized)} instance groups")
     except Exception as e:
-        logger.error(f"✗ 优化版本执行失败: {e}")
+        logger.error(f"[FAIL] Optimized implementation failed: {e}")
         time_optimized = None
         results_optimized = None
 
-    # 性能对比
+    # Performance comparison
     logger.info("\n" + "=" * 80)
-    logger.info("【性能对比结果】")
+    logger.info("Performance comparison")
     logger.info("=" * 80)
 
     if time_original and time_optimized:
         speedup = time_original / time_optimized
-        logger.info(f"原始版本耗时: {time_original:.4f}秒")
-        logger.info(f"优化版本耗时: {time_optimized:.4f}秒")
-        logger.info(f"加速比: {speedup:.2f}x")
-        logger.info(f"性能提升: {(speedup-1)*100:.1f}%")
+        logger.info(f"Original implementation runtime: {time_original:.4f} seconds")
+        logger.info(f"Optimized implementation runtime: {time_optimized:.4f} seconds")
+        logger.info(f"Speedup: {speedup:.2f}x")
+        logger.info(f"Performance improvement: {(speedup-1)*100:.1f}%")
 
         if speedup > 10:
-            logger.info("🚀 优化效果显著！")
+            logger.info("[INFO] Substantial improvement")
         elif speedup > 5:
-            logger.info("✓ 优化效果良好")
+            logger.info("[OK] Good improvement")
         else:
-            logger.info("⚠ 优化效果一般")
+            logger.info("[WARN] Limited improvement")
 
-    # 结果一致性检查
+    # Result consistency check
     if results_original and results_optimized:
-        logger.info("\n【结果一致性检查】")
+        logger.info("\nResult consistency check")
         if len(results_original) == len(results_optimized):
-            logger.info(f"✓ 匹配组数量一致: {len(results_original)}")
+            logger.info(f"[OK] The numbers of matched groups agree: {len(results_original)}")
         else:
-            logger.warning(f"⚠ 匹配组数量不一致: 原始={len(results_original)}, 优化={len(results_optimized)}")
+            logger.warning(f"[WARN] The numbers of matched groups differ: original={len(results_original)}, optimized={len(results_optimized)}")
 
     logger.info("=" * 80)
 
 
 def main():
-    """主函数"""
-    # 查找测试图片
-    test_image_dir = Path(r"C:\Users\XB001\Desktop\细胞")
+    """Main entry point"""
+    # Find test images
+    test_image_dir = Path(r"C:\Users\XB001\Desktop\cells")
 
     if not test_image_dir.exists():
-        logger.error(f"测试图片目录不存在: {test_image_dir}")
+        logger.error(f"The test image directory does not exist: {test_image_dir}")
         return
 
-    # 查找第一张图片
+    # Find the first image
     image_files = list(test_image_dir.glob("*.jpg")) + \
                   list(test_image_dir.glob("*.png")) + \
                   list(test_image_dir.glob("*.tif"))
 
     if not image_files:
-        logger.error(f"在 {test_image_dir} 中未找到图片文件")
+        logger.error(f"No image files found in {test_image_dir}")
         return
 
     test_image_path = str(image_files[0])
-    logger.info(f"使用测试图片: {test_image_path}")
+    logger.info(f"Using test image: {test_image_path}")
 
-    # 加载图片
+    # Load the image
     image = load_test_image(test_image_path)
 
-    # 模拟多个模型的分割结果
-    logger.info("\n生成模拟分割结果...")
+    # Simulate segmentation predictions from multiple models
+    logger.info("\nGenerating simulated segmentation results...")
     masks_list = simulate_segmentation_masks(image, num_models=3)
 
-    # 运行性能测试
+    # Run the performance benchmark
     run_performance_test(masks_list, iou_threshold=0.5)
 
 

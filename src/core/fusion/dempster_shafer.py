@@ -23,16 +23,16 @@ from loguru import logger
 
 @dataclass
 class FusionResult:
-    """融合结果数据类
+    """Data class for fusion results.
 
     Attributes:
-        mass_function: 最终质量函数字典
-        decision: 决策结果 ('Cell', 'Background', 'Cell|Background')
-        confidence: 置信度 [0,1]
-        conflict: 冲突系数 [0,1]
-        uncertainty: 不确定性 [0,1]
-        belief_cell: Cell的信念值 [0,1]
-        plausibility_cell: Cell的似然值 [0,1]
+        mass_function: Final mass-function dictionary.
+        decision: Decision ('Cell', 'Background', 'Cell|Background').
+        confidence: Confidence in the range [0, 1].
+        conflict: Sum of pairwise conflict coefficients; may exceed 1 for multiple models.
+        uncertainty: Uncertainty in the range [0, 1].
+        belief_cell: Belief assigned to Cell in the range [0, 1].
+        plausibility_cell: Plausibility assigned to Cell in the range [0, 1].
     """
     mass_function: Dict[str, float]
     decision: str
@@ -45,10 +45,10 @@ class FusionResult:
 
 class DempsterShaferFusion:
     """
-    Dempster-Shafer理论融合引擎
+    Dempster-Shafer evidence fusion engine.
 
-    用于融合多个细胞分割模型的预测结果，提供比简单投票更严格的
-    数学框架来处理不确定性和模型冲突。
+    Combine predictions from multiple cell segmentation models within a formal
+    framework for handling uncertainty and conflicting evidence.
 
     Example:
         >>> fusion_engine = DempsterShaferFusion({
@@ -67,12 +67,12 @@ class DempsterShaferFusion:
 
     def __init__(self, model_reliabilities: Dict[str, float]):
         """
-        初始化融合引擎
+        Initialize the fusion engine.
 
         Args:
-            model_reliabilities: 每个模型的可靠性参数 [0,1]
-                例如: {'cellpose': 0.9, 'cellvit': 0.85, 'cellsam': 0.8}
-                可靠性越高，模型的证据权重越大
+            model_reliabilities: Per-model reliability parameters in the range [0, 1].
+                Example: {'cellpose': 0.9, 'cellvit': 0.85, 'cellsam': 0.8}.
+                Higher reliability gives the model's evidence greater weight.
         """
         self.reliabilities = model_reliabilities
         self.hypotheses = ['Cell', 'Background', 'Cell|Background']
@@ -82,21 +82,21 @@ class DempsterShaferFusion:
                                     model_name: str,
                                     confidence: float) -> Dict[str, float]:
         """
-        从置信度计算质量函数
+        Compute a mass function from a confidence score.
 
-        将模型输出的置信度分数转换为DST质量函数。
+        Convert a model's confidence score to a DST mass function.
 
-        公式:
+        Formula:
             m(Cell) = confidence × reliability
             m(Background) = (1 - confidence) × reliability
             m(Cell|Background) = 1 - reliability
 
         Args:
-            model_name: 模型名称
-            confidence: 置信度 [0,1]
+            model_name: Model name.
+            confidence: Confidence in the range [0, 1].
 
         Returns:
-            质量函数字典，键为假设，值为质量值
+            Dictionary mapping hypotheses to mass values.
         """
         reliability = self.reliabilities.get(model_name, 0.8)
 
@@ -106,7 +106,7 @@ class DempsterShaferFusion:
             'Cell|Background': 1 - reliability
         }
 
-        # 验证质量函数和为1
+        # Verify that mass values sum to 1.
         total = sum(mass_func.values())
         assert abs(total - 1.0) < 1e-6, f"Mass function sum is {total}, should be 1.0"
 
@@ -114,30 +114,30 @@ class DempsterShaferFusion:
 
     def compute_intersection(self, A: str, B: str) -> str:
         """
-        计算两个假设的交集
+        Compute the intersection of two hypotheses.
 
-        交集规则:
+        Intersection rules:
         - Cell ∩ Cell = Cell
-        - Cell ∩ Background = ∅ (冲突)
+        - Cell ∩ Background = ∅ (conflict)
         - Cell ∩ Uncertain = Cell
         - Background ∩ Background = Background
         - Uncertain ∩ Uncertain = Uncertain
 
         Args:
-            A, B: 假设字符串，例如 'Cell', 'Background', 'Cell|Background'
+            A, B: Hypothesis strings, e.g. 'Cell', 'Background', 'Cell|Background'.
 
         Returns:
-            交集字符串，'∅' 表示空集（冲突）
+            Intersection string; the empty-set symbol denotes conflict.
         """
-        # 解析假设为集合
+        # Parse hypotheses as sets.
         set_A = set(A.split('|'))
         set_B = set(B.split('|'))
 
-        # 计算交集
+        # Compute the intersection.
         intersection = set_A & set_B
 
         if len(intersection) == 0:
-            return '∅'  # 空集，表示冲突
+            return '∅'  # An empty set denotes conflict.
         else:
             return '|'.join(sorted(intersection))
 
@@ -145,49 +145,49 @@ class DempsterShaferFusion:
                         m1: Dict[str, float],
                         m2: Dict[str, float]) -> Tuple[Dict[str, float], float]:
         """
-        Dempster组合规则
+        Dempster's rule of combination.
 
-        组合两个质量函数，计算联合证据和冲突系数。
+        Combine two mass functions to compute joint evidence and the conflict coefficient.
 
-        数学公式:
+        Mathematical formula:
             m₁₂(C) = [Σ m₁(A) × m₂(B)] / (1 - K)
                      A∩B=C
 
-            K = Σ m₁(A) × m₂(B)  (冲突系数)
+            K = Σ m₁(A) × m₂(B)  (conflict coefficient)
                 A∩B=∅
 
         Args:
-            m1, m2: 两个质量函数
+            m1, m2: Two mass functions.
 
         Returns:
-            (组合后的质量函数, 冲突系数)
+            (Combined mass function, conflict coefficient).
 
         Raises:
-            ValueError: 如果冲突系数 >= 1.0 (完全冲突)
+            ValueError: If the conflict coefficient is >= 1.0 (total conflict).
         """
         combined = {}
         conflict = 0.0
 
-        # 计算所有可能的交集
+        # Compute all possible intersections.
         for (A, m1_A) in m1.items():
             for (B, m2_B) in m2.items():
                 intersection = self.compute_intersection(A, B)
 
                 if intersection == '∅':
-                    # 冲突：两个假设不相容
+                    # Conflict: the two hypotheses are incompatible.
                     conflict += m1_A * m2_B
                 else:
-                    # 累加到对应的交集
+                    # Accumulate evidence for the corresponding intersection.
                     if intersection not in combined:
                         combined[intersection] = 0.0
                     combined[intersection] += m1_A * m2_B
 
-        # 检查完全冲突
+        # Check for total conflict.
         if conflict >= 1.0:
             logger.error(f"Complete conflict detected! K={conflict}")
-            raise ValueError(f"完全冲突！K={conflict}，无法融合")
+            raise ValueError(f"Total conflict: K={conflict}; fusion is not possible")
 
-        # 归一化
+        # Normalize.
         normalization = 1.0 - conflict
         for key in combined:
             combined[key] /= normalization
@@ -199,26 +199,27 @@ class DempsterShaferFusion:
     def combine_multiple(self,
                         mass_functions: List[Dict[str, float]]) -> Tuple[Dict[str, float], float]:
         """
-        组合多个质量函数
+        Combine multiple mass functions.
 
-        迭代应用Dempster组合规则，将多个模型的证据融合为单一的质量函数。
+        Iteratively apply Dempster's rule to combine model evidence into a single mass function.
 
         Args:
-            mass_functions: 质量函数列表
+            mass_functions: List of mass functions.
 
         Returns:
-            (最终组合的质量函数, 累积冲突系数)
+            (Final combined mass function, sum of conflict coefficients from each combination).
+            The accumulated conflict is not normalized and may exceed 1.
 
         Raises:
-            ValueError: 如果质量函数列表为空
+            ValueError: If the list of mass functions is empty.
         """
         if len(mass_functions) == 0:
-            raise ValueError("至少需要一个质量函数")
+            raise ValueError("At least one mass function is required")
 
         if len(mass_functions) == 1:
             return mass_functions[0], 0.0
 
-        # 迭代组合
+        # Combine iteratively.
         combined = mass_functions[0]
         total_conflict = 0.0
 
@@ -234,19 +235,19 @@ class DempsterShaferFusion:
                       mass_function: Dict[str, float],
                       hypothesis: str) -> float:
         """
-        计算信念函数 Bel(A)
+        Compute the belief function Bel(A).
 
-        信念函数表示对假设A的最小支持度（下界）。
+        Belief is the lower bound on support for hypothesis A.
 
-        公式:
-            Bel(A) = Σ m(B), 对所有 B ⊆ A
+        Formula:
+            Bel(A) = Σ m(B), for all B ⊆ A
 
         Args:
-            mass_function: 质量函数
-            hypothesis: 目标假设
+            mass_function: Mass function.
+            hypothesis: Target hypothesis.
 
         Returns:
-            信念值 [0,1]
+            Belief in the range [0, 1].
         """
         belief = 0.0
         target_set = set(hypothesis.split('|'))
@@ -262,47 +263,47 @@ class DempsterShaferFusion:
                             mass_function: Dict[str, float],
                             hypothesis: str) -> float:
         """
-        计算似然函数 Pl(A)
+        Compute the plausibility function Pl(A).
 
-        似然函数表示对假设A的最大支持度（上界）。
+        Plausibility is the upper bound on support for hypothesis A.
 
-        公式:
-            Pl(A) = Σ m(B), 对所有 B ∩ A ≠ ∅
+        Formula:
+            Pl(A) = Σ m(B), for all B ∩ A ≠ ∅
 
         Args:
-            mass_function: 质量函数
-            hypothesis: 目标假设
+            mass_function: Mass function.
+            hypothesis: Target hypothesis.
 
         Returns:
-            似然值 [0,1]
+            Plausibility in the range [0, 1].
         """
         plausibility = 0.0
         target_set = set(hypothesis.split('|'))
 
         for B, mass in mass_function.items():
             B_set = set(B.split('|'))
-            if len(B_set & target_set) > 0:  # 有交集
+            if len(B_set & target_set) > 0:  # The hypotheses overlap.
                 plausibility += mass
 
         return plausibility
 
     def decide(self, mass_function: Dict[str, float]) -> Tuple[str, float]:
         """
-        决策：选择最大质量的单元素假设
+        Select the singleton hypothesis with the largest mass.
 
-        从质量函数中选择具有最大质量值的单元素假设作为最终决策。
+        Choose the singleton hypothesis with the highest mass as the final decision.
 
         Args:
-            mass_function: 质量函数
+            mass_function: Mass function.
 
         Returns:
-            (决策结果, 置信度)
+            (Decision, confidence).
         """
         max_mass = 0.0
-        decision = 'Cell|Background'  # 默认不确定
+        decision = 'Cell|Background'  # Default to uncertainty.
 
         for hypothesis, mass in mass_function.items():
-            if '|' not in hypothesis:  # 单元素假设
+            if '|' not in hypothesis:  # Singleton hypothesis.
                 if mass > max_mass:
                     max_mass = mass
                     decision = hypothesis
@@ -312,38 +313,38 @@ class DempsterShaferFusion:
     def fuse_instances(self,
                       matched_group: List[Tuple[str, float]]) -> FusionResult:
         """
-        融合一组匹配的实例
+        Fuse a group of matched instances.
 
-        这是主要的融合接口，接受一组匹配的实例（来自不同模型），
-        返回融合结果和相关的不确定性度量。
+        This primary fusion interface accepts matched instances from different models
+        and returns a fusion result with uncertainty measures.
 
         Args:
             matched_group: [(model_name, confidence), ...]
-                例如: [('cellpose', 0.8), ('cellvit', 0.6), ('cellsam', 0.9)]
+                Example: [('cellpose', 0.8), ('cellvit', 0.6), ('cellsam', 0.9)].
 
         Returns:
-            FusionResult对象，包含决策、置信度、冲突度等信息
+            FusionResult containing the decision, confidence, conflict, and related measures.
         """
         logger.debug(f"Fusing {len(matched_group)} instances: {matched_group}")
 
-        # 步骤1: 计算每个模型的质量函数
+        # Step 1: compute a mass function for each model.
         mass_functions = []
         for model_name, confidence in matched_group:
             mass = self.compute_mass_from_confidence(model_name, confidence)
             mass_functions.append(mass)
             logger.debug(f"  {model_name}: confidence={confidence:.3f}, mass={mass}")
 
-        # 步骤2: 组合所有质量函数
+        # Step 2: combine all mass functions.
         combined_mass, total_conflict = self.combine_multiple(mass_functions)
 
-        # 步骤3: 决策
+        # Step 3: make a decision.
         decision, confidence = self.decide(combined_mass)
 
-        # 步骤4: 计算信念和似然
+        # Step 4: compute belief and plausibility.
         belief_cell = self.compute_belief(combined_mass, 'Cell')
         plausibility_cell = self.compute_plausibility(combined_mass, 'Cell')
 
-        # 步骤5: 计算不确定性
+        # Step 5: compute uncertainty.
         uncertainty = combined_mass.get('Cell|Background', 0.0)
 
         result = FusionResult(
@@ -365,20 +366,20 @@ class DempsterShaferFusion:
 def handle_conflict(result: FusionResult,
                    conflict_thresholds: Optional[Dict[str, float]] = None) -> Dict:
     """
-    根据冲突程度采取不同策略
+    Choose a handling strategy based on the conflict level.
 
-    冲突分级:
-    - 低冲突 (K < 0.3): 正常融合
-    - 中等冲突 (0.3 ≤ K < 0.6): 降低置信度
-    - 高冲突 (0.6 ≤ K < 0.9): 标记需要人工审查
-    - 完全冲突 (K ≥ 0.9): 拒绝融合
+    Conflict levels:
+    - Low conflict (K < 0.3): accept fusion normally.
+    - Moderate conflict (0.3 <= K < 0.6): reduce confidence.
+    - High conflict (0.6 <= K < 0.9): flag for manual review.
+    - Conflict at or above the rejection threshold (K >= 0.9): reject fusion.
 
     Args:
-        result: 融合结果
-        conflict_thresholds: 冲突阈值字典
+        result: Fusion result.
+        conflict_thresholds: Dictionary of conflict thresholds.
 
     Returns:
-        处理后的结果字典，包含状态、决策、置信度和建议操作
+        Result dictionary with status, decision, confidence, and recommended action.
     """
     if conflict_thresholds is None:
         conflict_thresholds = {
@@ -390,44 +391,44 @@ def handle_conflict(result: FusionResult,
     K = result.conflict
 
     if K < conflict_thresholds['low']:
-        # 低冲突：正常
+        # Low conflict: accept normally.
         return {
             'status': 'NORMAL',
             'decision': result.decision,
             'confidence': result.confidence,
             'action': 'accept',
-            'message': f'低冲突 (K={K:.3f})，融合结果可靠'
+            'message': f'Low conflict (K={K:.3f}); fusion accepted'
         }
 
     elif K < conflict_thresholds['medium']:
-        # 中等冲突：降低置信度
+        # Moderate conflict: reduce confidence.
         adjusted_confidence = result.confidence * (1 - K * 0.5)
         return {
             'status': 'MEDIUM_CONFLICT',
             'decision': result.decision,
             'confidence': adjusted_confidence,
             'action': 'accept_with_caution',
-            'warning': f'中等冲突 (K={K:.3f})，置信度已调整'
+            'warning': f'Moderate conflict (K={K:.3f}); confidence adjusted'
         }
 
     elif K < conflict_thresholds['high']:
-        # 高冲突：标记审查
+        # High conflict: flag for review.
         return {
             'status': 'HIGH_CONFLICT',
             'decision': 'Uncertain',
             'confidence': 0.0,
             'action': 'manual_review',
-            'warning': f'高冲突 (K={K:.3f})，需要人工审查'
+            'warning': f'High conflict (K={K:.3f}); manual review required'
         }
 
     else:
-        # 完全冲突：拒绝
+        # Conflict exceeds the configured rejection threshold.
         return {
             'status': 'COMPLETE_CONFLICT',
             'decision': 'Error',
             'confidence': 0.0,
             'action': 'reject',
-            'error': f'完全冲突 (K={K:.3f})，无法融合'
+            'error': f'Conflict too high (K={K:.3f}); fusion rejected'
         }
 
 
@@ -436,19 +437,20 @@ def generate_conflict_map(masks_list: List[np.ndarray],
                          model_names: List[str],
                          fusion_engine: DempsterShaferFusion) -> np.ndarray:
     """
-    生成像素级冲突图
+    Generate a pixel-level conflict map.
 
-    对图像中的每个像素，计算多个模型预测的冲突系数，
-    生成一张冲突热力图，用于可视化模型分歧区域。
+    Accumulate conflict between foreground predictions at each pixel
+    to visualize regions of model disagreement as a heatmap.
 
     Args:
-        masks_list: 模型分割结果列表 [(H,W), ...]
-        confidences_list: 置信度图列表 [(H,W), ...]
-        model_names: 模型名称列表
-        fusion_engine: DST融合引擎
+        masks_list: List of model segmentation masks [(H, W), ...].
+        confidences_list: List of confidence maps [(H, W), ...].
+        model_names: List of model names.
+        fusion_engine: DST fusion engine.
 
     Returns:
-        冲突图 (H, W)，值范围[0, 1]，值越大表示冲突越严重
+        Conflict map (H, W); larger values indicate stronger conflict. Accumulated
+        scores may exceed 1, and failed combinations receive a fallback score of 1.
     """
     H, W = masks_list[0].shape
     conflict_map = np.zeros((H, W), dtype=np.float32)
@@ -457,23 +459,23 @@ def generate_conflict_map(masks_list: List[np.ndarray],
 
     for i in range(H):
         for j in range(W):
-            # 提取该像素的所有模型预测
+            # Collect all model predictions for this pixel.
             pixel_predictions = []
             for k, (mask, conf, name) in enumerate(zip(masks_list,
                                                        confidences_list,
                                                        model_names)):
-                if mask[i, j] > 0:  # 该模型认为是前景
+                if mask[i, j] > 0:  # This model predicts foreground.
                     confidence = conf[i, j] if conf is not None else 0.5
                     pixel_predictions.append((name, confidence))
 
-            # 如果至少有2个模型预测
+            # Fuse when at least two models predict foreground.
             if len(pixel_predictions) >= 2:
                 try:
                     result = fusion_engine.fuse_instances(pixel_predictions)
                     conflict_map[i, j] = result.conflict
                 except Exception as e:
                     logger.warning(f"Fusion failed at pixel ({i},{j}): {e}")
-                    conflict_map[i, j] = 1.0  # 融合失败，标记为最高冲突
+                    conflict_map[i, j] = 1.0  # Assign a fallback conflict score if fusion fails.
 
     logger.info(f"Conflict map generated: mean={np.mean(conflict_map):.3f}, "
                f"max={np.max(conflict_map):.3f}")
